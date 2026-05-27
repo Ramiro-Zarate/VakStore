@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Electrolize&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend:wght@100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root{
+    --bg-prymary: #131313;
+    --bg-secondary: #6d6d6d;
+
+    --text-primary: #ffffff;
+    --text-muted: #e30613;
+
+    --font-titles: 'Electrolize', sans-serif; 
+    --font-body: 'Inter', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    background-color: var(--bg-prymary);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+}
+

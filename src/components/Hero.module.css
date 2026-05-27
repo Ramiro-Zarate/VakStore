@@ -1,0 +1,22 @@
+.hero{
+    background-image: linear-gradient(90deg,rgba(10,10,10,.82) 0%,rgba(10,10,10,.65) 40%,rgba(10,10,10,.35) 100%
+    ), url(../public/images/backgroundHero.png);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 5rem 0;
+}
+
+.heroSection{
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 5rem 0.5rem;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}

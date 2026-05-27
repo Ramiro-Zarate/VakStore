@@ -1,5 +1,8 @@
 ---
+import './styles/global.css'
 
+import Nav from '../components/Nav.astro'
+import Hero from '../components/Hero.astro'
 ---
 
 <html lang="en">
@@ -12,6 +15,10 @@
 		<title>Astro</title>
 	</head>
 	<body>
-		<h1>Astro</h1>
+		<Nav />
+
+		<main>
+			<Hero />
+		</main>
 	</body>
 </html>
