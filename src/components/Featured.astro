@@ -1,11 +1,11 @@
 ---
 import styles from './Featured.module.css'
+import ProductGrid from './ProductGrid.tsx'
 ---
 
 <section class={styles.destacado}>
     <div class={styles.destacadoSection}>
-        <div class={styles.card}>
-
-        </div>
+        <h2 class={styles.title}>Destacados</h2>
+        <ProductGrid client:load />
     </div>
 </section>

@@ -1,0 +1,18 @@
+.destacado {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 4rem 0.5rem;
+}
+
+.destacadoSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.title {
+    font-family: var(--font-titles);
+    font-size: 2.5rem;
+    color: var(--text-primary);
+    text-transform: uppercase;
+}

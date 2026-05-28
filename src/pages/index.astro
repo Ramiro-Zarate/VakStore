@@ -3,6 +3,7 @@ import './styles/global.css'
 
 import Nav from '../components/Nav.astro'
 import Hero from '../components/Hero.astro'
+import Featured from '../components/Featured.astro'
 ---
 
 <html lang="en">
@@ -12,13 +13,14 @@ import Hero from '../components/Hero.astro'
 		<link rel="icon" href="//images/icon.png" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>Vak Store</title>
 	</head>
 	<body>
 		<Nav />
 
 		<main>
 			<Hero />
+			<Featured />
 		</main>
 	</body>
 </html>
