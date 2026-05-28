@@ -1,22 +1,76 @@
 .hero{
     background-image: linear-gradient(90deg,rgba(10,10,10,.82) 0%,rgba(10,10,10,.65) 40%,rgba(10,10,10,.35) 100%
-    ), url(../public/images/backgroundHero.png);
+    ), url(..//images/backgroundHero.png);
     background-position: center;
     background-size: cover;
     background-repeat: no-repeat;
-    height: 70vh;
+    height: 90vh;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: flex-start;
-    padding: 5rem 0;
 }
 
 .heroSection{
-    max-width: 1100px;
+    max-width: 1600px;
     margin: 0 auto;
-    padding: 5rem 0.5rem;
+    padding: 10rem .5rem;
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: .5rem;
+}
+
+.heroSection h2{
+    font-family: var(--font-titles);
+    font-size: 6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: left;
+    margin: 0;
+    line-height: 1.1;
+    width: 300px;
+
+    span{
+        color: var(--text-muted);
+    }
+}
+
+.subtitle {
+    font-family: var(--font-body);
+    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: left;
+    margin: 0;
+    width: 400px;
+}
+
+
+.heroActions{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    margin-top: 1rem;
+
+    a{
+        color: var(--text-primary);
+        text-decoration: none;
+        text-transform: uppercase;
+        font-size: 1.1rem;
+        padding: 1rem 1rem;
+        background-color: var(--bg-secondary);
+    }
+
+    :first-child{
+        background-color: var(--bg-light);
+    }
+}
+
+.badge {
+    background: var(--bg-light);
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-family: var(--font-body);
+    text-transform: uppercase;
+    backdrop-filter: blur(4px);
+    width: fit-content;
 }
