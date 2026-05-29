@@ -4,7 +4,7 @@
   padding: 2rem 0.5rem;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background-color: var(--bg-light);
+  background-color: var(--bg-primary);
   gap: 4rem;
 }
 

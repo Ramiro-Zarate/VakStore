@@ -61,11 +61,11 @@ export default function ProductDetail({ product }: Props) {
       </div>
 
       <div className={styles.infoSection}>
-        <span className={styles.category}>{product.category}</span>
+        {/* <span className={styles.category}>{product.category}</span> */}
         <h1 className={styles.name}>{product.name}</h1>
-        {product.description && (
-          <p className={styles.description}>{product.description}</p>
-        )}
+        {/* {product.description && (
+          <p className={styles.description}>{product.description}</p> 
+        )} */}
 
         <div className={styles.priceSection}>
           <span className={styles.price}>
@@ -73,7 +73,7 @@ export default function ProductDetail({ product }: Props) {
           </span>
         </div>
 
-        <div className={styles.section}>
+        {/* <div className={styles.section}>
           <label className={styles.label}>Versión</label>
           <div className={styles.buttons}>
             {versions.map(version => (
@@ -86,7 +86,7 @@ export default function ProductDetail({ product }: Props) {
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
 
         <div className={styles.section}>
           <label className={styles.label}>Talle</label>

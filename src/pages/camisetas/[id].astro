@@ -1,8 +1,7 @@
 ---
 export const prerender = false
 
-import '../styles/global.css'
-import Nav from '../../components/Nav.astro'
+import Layout from '../../layouts/Layout.astro'
 import ProductDetail from '../../components/ProductDetail.tsx'
 import { supabase } from '../../lib/supabase'
 
@@ -24,17 +23,6 @@ if (error || !product) {
 }
 ---
 
-<!DOCTYPE html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>{product.name} | Vak Store</title>
-  </head>
-  <body>
-    <Nav />
-    <main>
-      <ProductDetail product={product} client:load />
-    </main>
-  </body>
-</html>
+<Layout title={`${product.name} | Vak Store`}>
+  <ProductDetail product={product} client:load />
+</Layout>

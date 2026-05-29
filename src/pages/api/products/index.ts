@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro'
 import { supabase } from '../../../lib/supabase'
 import type { ProductVariant } from '../../../lib/types'
 
+export const prerender = false
 
 interface ProductWithVariants {
   id: string

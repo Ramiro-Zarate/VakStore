@@ -1,25 +1,11 @@
 ---
 import './styles/global.css'
-
-import Nav from '../components/Nav.astro'
+import Layout from '../layouts/Layout.astro'
 import Hero from '../components/Hero.astro'
 import Featured from '../components/Featured.astro'
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" href="/images/icon.png" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Vak Store</title>
-	</head>
-	<body>
-		<Nav />
-
-		<main>
-			<Hero />
-			<Featured />
-		</main>
-	</body>
-</html>
+<Layout title="Vak Store">
+  <Hero />
+  <Featured />
+</Layout>
