@@ -22,6 +22,10 @@ export interface ProductVariant {
   updated_at: string
 }
 
+export type ProductWithVariants = Product & {
+  product_variants: ProductVariant[]
+}
+
 export interface Profile {
   id: string
   email: string

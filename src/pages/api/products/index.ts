@@ -1,20 +1,8 @@
 import type { APIRoute } from 'astro'
 import { supabase } from '../../../lib/supabase'
-import type { ProductVariant } from '../../../lib/types'
+import type { ProductWithVariants } from '../../../lib/types'
 
 export const prerender = false
-
-interface ProductWithVariants {
-  id: string
-  name: string
-  description: string | null
-  image_url: string | null
-  is_active: boolean
-  category: string
-  created_at: string
-  updated_at: string
-  product_variants: ProductVariant[] 
-}
 
 export const GET: APIRoute = async ({ url }) => {
   try {

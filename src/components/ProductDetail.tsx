@@ -1,10 +1,6 @@
 import { useState } from 'react'
-import type { Product, ProductVariant } from '../lib/types'
+import type { ProductWithVariants } from '../lib/types'
 import styles from './ProductDetail.module.css'
-
-type ProductWithVariants = Product & {
-  product_variants: ProductVariant[]
-}
 
 type Props = {
   product: ProductWithVariants
@@ -13,6 +9,8 @@ type Props = {
 export default function ProductDetail({ product }: Props) {
   const versions = ['jugador', 'fan', 'retro'] as const
   const sizes = ['S', 'M', 'L', 'XL', 'XXL']
+
+  const basePrice = product.product_variants[0]?.price || 0
 
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
@@ -63,30 +61,12 @@ export default function ProductDetail({ product }: Props) {
       <div className={styles.infoSection}>
         {/* <span className={styles.category}>{product.category}</span> */}
         <h1 className={styles.name}>{product.name}</h1>
-        {/* {product.description && (
-          <p className={styles.description}>{product.description}</p> 
-        )} */}
-
+      
         <div className={styles.priceSection}>
           <span className={styles.price}>
-            ${selectedVariantData?.price?.toLocaleString('es-AR') || '—'}
+            ${basePrice > 0 ? basePrice.toLocaleString('es-AR') : 'Consultar'}
           </span>
         </div>
-
-        {/* <div className={styles.section}>
-          <label className={styles.label}>Versión</label>
-          <div className={styles.buttons}>
-            {versions.map(version => (
-              <button
-                key={version}
-                className={`${styles.button} ${selectedVersion === version ? styles.active : ''}`}
-                onClick={() => handleVersionChange(version)}
-              >
-                {version}
-              </button>
-            ))}
-          </div>
-        </div> */}
 
         <div className={styles.section}>
           <label className={styles.label}>Talle</label>

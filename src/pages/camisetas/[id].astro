@@ -4,6 +4,7 @@ export const prerender = false
 import Layout from '../../layouts/Layout.astro'
 import ProductDetail from '../../components/ProductDetail.tsx'
 import { supabase } from '../../lib/supabase'
+import type { ProductWithVariants } from '../../lib/types'
 
 const { id } = Astro.params
 
@@ -16,7 +17,7 @@ const { data: product, error } = await supabase
   .select('*, product_variants(*)')
   .eq('id', id)
   .eq('is_active', true)
-  .single()
+  .single() as { data: ProductWithVariants | null, error: any }
 
 if (error || !product) {
   return Astro.redirect('/404')

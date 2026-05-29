@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { Product, ProductVariant } from '../lib/types'
+import type { ProductWithVariants } from '../lib/types'
 import styles from './ProductGrid.module.css'
-
-type ProductWithVariants = Product & {
-  product_variants: ProductVariant[]
-}
 
 export default function ProductGrid() {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
