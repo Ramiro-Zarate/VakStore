@@ -1,0 +1,40 @@
+---
+export const prerender = false
+
+import '../styles/global.css'
+import Nav from '../../components/Nav.astro'
+import ProductDetail from '../../components/ProductDetail.tsx'
+import { supabase } from '../../lib/supabase'
+
+const { id } = Astro.params
+
+if (!id) {
+  return Astro.redirect('/404')
+}
+
+const { data: product, error } = await supabase
+  .from('products')
+  .select('*, product_variants(*)')
+  .eq('id', id)
+  .eq('is_active', true)
+  .single()
+
+if (error || !product) {
+  return Astro.redirect('/404')
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{product.name} | Vak Store</title>
+  </head>
+  <body>
+    <Nav />
+    <main>
+      <ProductDetail product={product} client:load />
+    </main>
+  </body>
+</html>

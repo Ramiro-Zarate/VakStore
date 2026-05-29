@@ -1,6 +1,6 @@
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
   padding: 2rem 0;
   max-width: 1600px;
@@ -8,11 +8,11 @@
 }
 
 .card {
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
+  background-color: var(--text-primary);
   overflow: hidden;
   text-decoration: none;
-  color: var(--text-primary);
+  color: var(--bg-light);
+
   transition: transform 0.2s ease;
 }
 
@@ -58,23 +58,16 @@
 
 .name {
   font-family: var(--font-titles);
-  font-size: 1.1rem;
+  font-size: var(--font-size-2xl);
   margin: 0 0 0.5rem;
 }
 
 .price {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text-muted);
   margin: 0 0 0.25rem;
 }
 
-.category {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-  text-transform: capitalize;
-}
 
 .loading,
 .error,

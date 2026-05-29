@@ -10,6 +10,15 @@
 
     --font-titles: 'Electrolize', sans-serif; 
     --font-body: 'Inter', sans-serif;
+
+  --font-size-xs: 0.75rem;   
+  --font-size-s: 0.875rem;  
+  --font-size-m: 1rem;       
+  --font-size-l: 1.25rem;   
+  --font-size-xl: 1.5rem;    
+  --font-size-2xl: 2rem;     
+  --font-size-3xl: 2.5rem;   
+
 }
 
 * {

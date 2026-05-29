@@ -71,7 +71,6 @@ function ProductCard({ product }: { product: ProductWithVariants }) {
             'Consultar'
           )}
         </p>
-        <p className={styles.category}>{product.category}</p>
       </div>
     </a>
   )
