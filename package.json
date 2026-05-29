@@ -9,7 +9,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "seed": "npx tsx scripts/seed.ts",
+    "create-sample": "npx tsx scripts/create-sample.ts"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.5",
@@ -18,7 +20,12 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "astro": "^6.3.7",
+    "dotenv": "^17.4.2",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.3"
   }
 }

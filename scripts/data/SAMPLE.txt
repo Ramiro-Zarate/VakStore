@@ -1,0 +1,34 @@
+# Sample Excel structure for seed script
+
+## Sheet: products
+| name | description | image_url | is_active | category |
+|------|-------------|-----------|-----------|----------|
+| Argentina Local 2024 | Camiseta de la seleccion Argentina | https://... | true | camiseta |
+| Brasil Visita 2024 | Camiseta de Brasil visitante | https://... | true | camiseta |
+
+## Sheet: variants
+| product_name | version | size | club | league | price |
+|--------------|---------|------|------|--------|-------|
+| Argentina Local 2024 | jugador | M | argentina | fifa | 25000 |
+| Argentina Local 2024 | jugador | L | argentina | fifa | 25000 |
+| Argentina Local 2024 | fan | M | argentina | fifa | 18000 |
+| Brasil Visita 2024 | jugador | M | brasil | conmebol | 22000 |
+
+## Notes:
+- product_name is the NAME of the product (not UUID)
+- The script resolves product_name to UUID automatically
+- category in Excel uses: "camiseta", "short", "campera"
+- category in DB uses: "camisetas", "short", "campera"
+- Stock quantity is NOT in the Excel - it only lives in Supabase
+- Price is per variant, not per product
+
+## Workflow:
+1. Run `npm run create-sample` to generate stock-sample.xlsx
+2. Rename to stock.xlsx or copy to scripts/data/stock.xlsx
+3. Edit with your real data
+4. Run `npm run seed` to upload to Supabase
+
+## Image URLs:
+- Images are stored as URLs in Supabase
+- You can upload images to Supabase Storage and use the provided URL
+- Or use external URLs (hosted elsewhere)
