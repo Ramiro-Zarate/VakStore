@@ -39,13 +39,33 @@ const LEAGUES = [
   { value: 'Liga Argentina', label: 'Liga Argentina' }
 ]
 
+function getFiltersFromURL(): Filters {
+  if (typeof window === 'undefined') return {}
+  const params = new URLSearchParams(window.location.search)
+  return {
+    category: params.get('category') || undefined,
+    size: params.get('size') || undefined,
+    league: params.get('league') || undefined,
+    minPrice: params.get('minPrice') || undefined,
+    maxPrice: params.get('maxPrice') || undefined
+  }
+}
+
 export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProps) {
-  const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [filters, setFilters] = useState<Filters>(getFiltersFromURL)
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
-    setFilters(initialFilters)
-  }, [initialFilters])
+    setFilters(getFiltersFromURL())
+  }, [])
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setFilters(getFiltersFromURL())
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   const updateURL = (newFilters: Filters) => {
     const params = new URLSearchParams()
@@ -169,7 +189,7 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
 }
 
 export function useFilters() {
-  const [filters, setFilters] = useState<Filters>({})
+  const [filters, setFilters] = useState<Filters>(getFiltersFromURL)
 
   useEffect(() => {
     if (typeof window === 'undefined') return

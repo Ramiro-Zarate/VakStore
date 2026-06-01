@@ -7,14 +7,49 @@ interface ProductGridProps {
   initialFilters?: Filters
 }
 
+function getFiltersFromURL(): Filters {
+  if (typeof window === 'undefined') return {}
+  const params = new URLSearchParams(window.location.search)
+  return {
+    category: params.get('category') || undefined,
+    size: params.get('size') || undefined,
+    league: params.get('league') || undefined,
+    minPrice: params.get('minPrice') || undefined,
+    maxPrice: params.get('maxPrice') || undefined
+  }
+}
+
 export default function ProductGrid({ initialFilters = {} }: ProductGridProps) {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const fetchProducts = (filters: Filters) => {
+    setLoading(true)
+    setError(null)
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value)
+    })
+    const queryString = params.toString()
+    const url = queryString ? `/api/products?${queryString}` : '/api/products'
+    
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setError(data.error)
+        } else {
+          setProducts(data.products)
+        }
+      })
+      .catch(() => setError('Error al cargar productos'))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
-    fetchProducts(initialFilters)
-  }, [JSON.stringify(initialFilters)])
+    fetchProducts(getFiltersFromURL())
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -25,32 +60,6 @@ export default function ProductGrid({ initialFilters = {} }: ProductGridProps) {
     window.addEventListener('filterschange', handleFiltersChange as EventListener)
     return () => window.removeEventListener('filterschange', handleFiltersChange as EventListener)
   }, [])
-
-  async function fetchProducts(filters: Filters) {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.set(key, value)
-      })
-      const queryString = params.toString()
-      const url = queryString ? `/api/products?${queryString}` : '/api/products'
-      
-      const res = await fetch(url)
-      const data = await res.json()
-
-      if (data.error) {
-        setError(data.error)
-      } else {
-        setProducts(data.products)
-      }
-    } catch (err) {
-      setError('Error al cargar productos')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   if (loading) return <div className={styles.loading}>Cargando...</div>
   if (error) return <div className={styles.error}>{error}</div>

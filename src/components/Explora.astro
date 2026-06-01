@@ -1,0 +1,41 @@
+---
+import styles from './Explora.module.css'
+
+const categories = [
+  {
+    name: 'Camisetas',
+    slug: 'camisetas',
+    image: '/images/categorias/camiseta.jpeg'
+  },
+  {
+    name: 'Shorts',
+    slug: 'shorts',
+    image: '/images/categorias/short.jpeg'
+  },
+  {
+    name: 'Camperas',
+    slug: 'camperas',
+    image: '/images/categorias/campera.jpeg'
+  }
+]
+---
+
+<section class={styles.explora}>
+  <div class={styles.container}>
+    <h2 class={styles.title}>Explora</h2>
+    <div class={styles.grid}>
+      {categories.map(category => (
+        <a href={`/productos?category=${category.slug}`} class={styles.card}>
+          <div class={styles.imageWrapper}>
+            <img src={category.image} alt={category.name} class={styles.image} />
+            <div class={styles.overlay}></div>
+          </div>
+          <div class={styles.content}>
+            <h3 class={styles.name}>{category.name}</h3>
+            <span class={styles.button}>Ver productos</span>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
