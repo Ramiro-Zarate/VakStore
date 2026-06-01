@@ -14,11 +14,49 @@ import CartDrawer from './CartDrawer.tsx';
             <a href="">Contacto</a>
         </div>
         <div class={styles.navActions}>
-            <a href="" aria-label="Mi cuenta">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
-            </a>
+            <a href="/login" class={styles.loginLink}>Iniciar sesión</a>
+            <a href="/registro" class={styles.registerLink}>Registrarse</a>
             <CartButton client:load />
         </div>
     </nav>
     <CartDrawer client:load />
 </header>
+
+<style>
+  .loginLink,
+  .registerLink {
+    padding: 0.5rem 1rem;
+    font-size: var(--font-size-base);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .loginLink {
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .loginLink:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .registerLink {
+    color: var(--text-primary);
+    background-color: var(--bg-light);
+  }
+
+  .registerLink:hover {
+    background-color: #b0000f;
+  }
+
+  @media (max-width: 768px) {
+    .loginLink,
+    .registerLink {
+      padding: 0.5rem 0.75rem;
+      font-size: var(--font-size-sm);
+    }
+  }
+</style>

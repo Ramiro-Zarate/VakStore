@@ -1,0 +1,47 @@
+.loading {
+  width: 80px;
+  height: 28px;
+}
+
+.guestNav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loginLink,
+.registerLink {
+  padding: 0.5rem 1rem;
+  font-size: var(--font-size-base);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.loginLink {
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.loginLink:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.registerLink {
+  color: var(--text-primary);
+  background-color: var(--bg-light);
+}
+
+.registerLink:hover {
+  background-color: #b0000f;
+}
+
+@media (max-width: 768px) {
+  .loginLink,
+  .registerLink {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--font-size-sm);
+  }
+}

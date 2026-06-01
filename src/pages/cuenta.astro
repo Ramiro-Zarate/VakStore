@@ -1,0 +1,30 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { useAuth } from '../../context/AuthContext'
+---
+
+<Layout title="Mi cuenta | Vak Store">
+  <div class="account-page">
+    <h1>Mi cuenta</h1>
+    <p>Bienvenido a tu cuenta</p>
+  </div>
+</Layout>
+
+<style>
+  .account-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-family: var(--font-titles);
+    font-size: var(--font-size-3xl);
+    color: var(--text-primary);
+    margin: 0 0 1rem;
+  }
+
+  p {
+    color: var(--text-muted);
+  }
+</style>

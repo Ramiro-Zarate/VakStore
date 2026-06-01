@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro'
+---
+
+<Layout title="Autenticando... | Vak Store">
+  <div class="callback-page">
+    <p>Completando autenticación...</p>
+  </div>
+</Layout>
+
+<script>
+  import { supabase } from '../../lib/supabase'
+  
+  supabase.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      window.location.href = '/'
+    } else {
+      window.location.href = '/login'
+    }
+  })
+</script>
+
+<style>
+  .callback-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 200px);
+    color: var(--text-muted);
+  }
+</style>
