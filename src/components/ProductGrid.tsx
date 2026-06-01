@@ -1,19 +1,43 @@
 import { useState, useEffect } from 'react'
 import type { ProductWithVariants } from '../lib/types'
 import styles from './ProductGrid.module.css'
+import type { Filters } from './FilterSidebar'
 
-export default function ProductGrid() {
+interface ProductGridProps {
+  initialFilters?: Filters
+}
+
+export default function ProductGrid({ initialFilters = {} }: ProductGridProps) {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchProducts()
+    fetchProducts(initialFilters)
+  }, [JSON.stringify(initialFilters)])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    const handleFiltersChange = (e: CustomEvent<Filters>) => {
+      fetchProducts(e.detail)
+    }
+    window.addEventListener('filterschange', handleFiltersChange as EventListener)
+    return () => window.removeEventListener('filterschange', handleFiltersChange as EventListener)
   }, [])
 
-  async function fetchProducts() {
+  async function fetchProducts(filters: Filters) {
+    setLoading(true)
+    setError(null)
     try {
-      const res = await fetch('/api/products')
+      const params = new URLSearchParams()
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.set(key, value)
+      })
+      const queryString = params.toString()
+      const url = queryString ? `/api/products?${queryString}` : '/api/products'
+      
+      const res = await fetch(url)
       const data = await res.json()
 
       if (data.error) {
@@ -49,7 +73,7 @@ function ProductCard({ product }: { product: ProductWithVariants }) {
   const hasStock = product.product_variants.some(v => v.stock_quantity > 0)
 
   return (
-    <a href={`/camisetas/${product.id}`} className={styles.card}>
+    <a href={`/camisetas/${product.id}`} className={`${styles.card} ${!hasStock ? styles.soldOutCard : ''}`}>
       <div className={styles.imageContainer}>
         {product.image_url ? (
           <img src={product.image_url} alt={product.name} className={styles.image} />

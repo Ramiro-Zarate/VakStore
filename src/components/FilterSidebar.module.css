@@ -1,0 +1,188 @@
+.container {
+  padding: 1.5rem;
+  background-color: var(--text-primary);
+  border-radius: 8px;
+  height: fit-content;
+  position: sticky;
+  top: 2rem;
+}
+
+.title {
+  font-family: var(--font-titles);
+  font-size: var(--font-size-xl);
+  color: var(--bg-light);
+  margin: 0 0 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.filterGroup {
+  margin-bottom: 1.25rem;
+}
+
+.label {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.select,
+.input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  background-color: var(--bg-light);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.select:hover,
+.input:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.select:focus,
+.input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.priceRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.priceRow .input {
+  flex: 1;
+}
+
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 1.5rem 0;
+}
+
+.activeFilters {
+  margin-bottom: 1rem;
+}
+
+.activeFiltersTitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.activeTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background-color: var(--accent-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.tagRemove {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tagRemove:hover {
+  color: var(--bg-light);
+}
+
+.clearButton {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clearButton:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--bg-light);
+}
+
+@media (max-width: 1024px) {
+  .container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 300px;
+    height: 100vh;
+    z-index: 1000;
+    border-radius: 0;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .container.open {
+    transform: translateX(0);
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .closeButton {
+    display: block;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .closeButton:hover {
+    color: var(--bg-light);
+  }
+}
+
+@media (min-width: 1025px) {
+  .overlay,
+  .closeButton {
+    display: none;
+  }
+}

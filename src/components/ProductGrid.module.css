@@ -52,6 +52,11 @@
   text-transform: uppercase;
 }
 
+.soldOutCard {
+  opacity: 0.6;
+  filter: grayscale(100%);
+}
+
 .info {
   padding: 1rem;
 }

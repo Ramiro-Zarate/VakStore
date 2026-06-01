@@ -59,7 +59,7 @@ export default function ProductDetail({ product }: Props) {
       </div>
 
       <div className={styles.infoSection}>
-        {/* <span className={styles.category}>{product.category}</span> */}
+       
         <h1 className={styles.name}>{product.name}</h1>
       
         <div className={styles.priceSection}>
