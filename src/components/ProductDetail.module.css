@@ -56,6 +56,14 @@
   line-height: 1.2;
 }
 
+.versionInfo {
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  text-transform: capitalize;
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
 .description {
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.6;
@@ -191,4 +199,31 @@
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.5);
   margin: 0;
+}
+
+.feedback {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  padding: 1rem 2rem;
+  border-radius: 4px;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  z-index: 1000;
+  animation: fadeUp 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { ProductWithVariants } from '../lib/types'
+import { useCartStore } from '../hooks/useCartStore'
 import styles from './ProductDetail.module.css'
 
 type Props = {
@@ -7,36 +8,31 @@ type Props = {
 }
 
 export default function ProductDetail({ product }: Props) {
-  const versions = ['jugador', 'fan', 'retro'] as const
+  const { addToCart } = useCartStore()
   const sizes = ['S', 'M', 'L', 'XL', 'XXL']
 
   const basePrice = product.product_variants[0]?.price || 0
+  const productVersion = product.product_variants[0]?.version || null
 
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
-  const filteredVariants = product.product_variants.filter(
-    v => !selectedVersion || v.version === selectedVersion
-  )
-
-  const uniqueSizes = [...new Set(filteredVariants.map(v => v.size))]
+  useEffect(() => {
+    setSelectedVersion(productVersion)
+  }, [productVersion])
 
   const getVariant = () => {
-    if (!selectedVersion || !selectedSize) return null
-    return filteredVariants.find(v => v.version === selectedVersion && v.size === selectedSize)
+    if (!selectedSize) return null
+    return product.product_variants.find(v => v.size === selectedSize)
   }
 
   const selectedVariantData = getVariant()
 
   const getStockForSize = (size: string) => {
-    const variant = filteredVariants.find(v => v.size === size)
+    const variant = product.product_variants.find(v => v.size === size)
     return variant?.stock_quantity || 0
-  }
-
-  const handleVersionChange = (version: string) => {
-    setSelectedVersion(version)
-    setSelectedSize(null)
   }
 
   const handleSizeChange = (size: string) => {
@@ -45,11 +41,29 @@ export default function ProductDetail({ product }: Props) {
 
   const handleAddToCart = () => {
     if (!selectedVariantData) return
-    alert(`Agregado al carrito: ${product.name} (${selectedVersion} - ${selectedSize}) x${quantity}`)
+
+    addToCart(
+      {
+        productVariantId: selectedVariantData.id,
+        productId: product.id,
+        productName: product.name,
+        productImage: product.image_url,
+        version: selectedVariantData.version,
+        size: selectedVariantData.size,
+        price: selectedVariantData.price,
+        stock: selectedVariantData.stock_quantity
+      },
+      quantity
+    )
+
+    setFeedback(`"${product.name}" agregado al carrito`)
+    setTimeout(() => setFeedback(null), 3000)
   }
 
   return (
     <div className={styles.container}>
+      {feedback && <div className={styles.feedback}>{feedback}</div>}
+
       <div className={styles.imageSection}>
         {product.image_url ? (
           <img src={product.image_url} alt={product.name} className={styles.image} />
@@ -61,6 +75,10 @@ export default function ProductDetail({ product }: Props) {
       <div className={styles.infoSection}>
        
         <h1 className={styles.name}>{product.name}</h1>
+
+        {selectedVersion && (
+          <p className={styles.versionInfo}>Versión: {selectedVersion}</p>
+        )}
       
         <div className={styles.priceSection}>
           <span className={styles.price}>
@@ -109,7 +127,8 @@ export default function ProductDetail({ product }: Props) {
             <span className={styles.quantity}>{quantity}</span>
             <button
               className={styles.quantityButton}
-              onClick={() => setQuantity(q => q + 1)}
+              onClick={() => setQuantity(q => Math.min(q + 1, selectedVariantData?.stock_quantity || 1))}
+              disabled={!selectedVariantData || quantity >= selectedVariantData.stock_quantity}
             >
               +
             </button>
