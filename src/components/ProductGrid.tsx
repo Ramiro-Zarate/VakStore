@@ -5,6 +5,7 @@ import type { Filters } from './FilterSidebar'
 
 interface ProductGridProps {
   initialFilters?: Filters
+  featuredOnly?: boolean
 }
 
 function getFiltersFromURL(): Filters {
@@ -19,7 +20,7 @@ function getFiltersFromURL(): Filters {
   }
 }
 
-export default function ProductGrid({ initialFilters = {} }: ProductGridProps) {
+export default function ProductGrid({ initialFilters = {}, featuredOnly = false }: ProductGridProps) {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,9 +32,10 @@ export default function ProductGrid({ initialFilters = {} }: ProductGridProps) {
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.set(key, value)
     })
+    if (featuredOnly) params.set('featured', 'true')
     const queryString = params.toString()
     const url = queryString ? `/api/products?${queryString}` : '/api/products'
-    
+
     fetch(url)
       .then(res => res.json())
       .then(data => {
@@ -53,7 +55,7 @@ export default function ProductGrid({ initialFilters = {} }: ProductGridProps) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    
+
     const handleFiltersChange = (e: CustomEvent<Filters>) => {
       fetchProducts(e.detail)
     }
@@ -85,7 +87,7 @@ function ProductCard({ product }: { product: ProductWithVariants }) {
     <a href={`/camisetas/${product.id}`} className={`${styles.card} ${!hasStock ? styles.soldOutCard : ''}`}>
       <div className={styles.imageContainer}>
         {product.image_url ? (
-          <img src={product.image_url} alt={product.name} className={styles.image} />
+          <img src={product.image_url} alt={product.name} className={styles.image} loading="lazy" decoding="async" />
         ) : (
           <div className={styles.imagePlaceholder}>Sin imagen</div>
         )}

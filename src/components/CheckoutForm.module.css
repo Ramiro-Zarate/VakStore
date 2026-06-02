@@ -1,0 +1,231 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 2rem;
+  min-height: calc(100vh - 120px);
+}
+
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.title {
+  font-family: var(--font-titles);
+  font-size: var(--font-size-2xl);
+  color: var(--text-primary);
+  margin: 0 0 1.5rem;
+}
+
+.formCard {
+  background-color: #1d1d1d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.sectionTitle {
+  font-family: var(--font-titles);
+  font-size: var(--font-size-l);
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 500px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.label {
+  display: block;
+  font-size: var(--font-size-s);
+  color: var(--text-primary);
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+}
+
+.input {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  background-color: #131313;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-m);
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--bg-light);
+}
+
+.inputError {
+  border-color: #ef4444;
+}
+
+.errorText {
+  color: #ef4444;
+  font-size: var(--font-size-s);
+  margin-top: 0.3rem;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 0.9rem;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: var(--font-size-m);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: #b0000f;
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.summary {
+  background-color: #1d1d1d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 1.5rem;
+  height: fit-content;
+  position: sticky;
+  top: 1.5rem;
+}
+
+.summaryTitle {
+  font-family: var(--font-titles);
+  font-size: var(--font-size-l);
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+}
+
+.summaryItem {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.summaryItem:last-of-type {
+  border-bottom: none;
+}
+
+.summaryImage {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  background-color: #131313;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.summaryImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.summaryInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.summaryName {
+  font-size: var(--font-size-s);
+  color: var(--text-primary);
+  margin: 0 0 0.2rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summaryVariant {
+  font-size: var(--font-size-xs);
+  color: #999;
+  margin: 0 0 0.2rem;
+}
+
+.summaryPrice {
+  font-size: var(--font-size-s);
+  color: var(--text-primary);
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.summaryTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--bg-light);
+  font-family: var(--font-titles);
+  font-size: var(--font-size-l);
+}
+
+.summaryTotalAmount {
+  color: var(--bg-light);
+  font-weight: 700;
+}
+
+.empty {
+  text-align: center;
+  padding: 4rem 1rem;
+  color: #999;
+}
+
+.emptyButton {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.7rem 1.5rem;
+  background-color: var(--bg-light);
+  color: var(--text-primary);
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: var(--font-size-s);
+}
+
+.alertError {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}

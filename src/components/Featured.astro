@@ -6,6 +6,6 @@ import ProductGrid from './ProductGrid.tsx'
 <section class={styles.destacado}>
     <div class={styles.destacadoSection}>
         <h2 class={styles.title}>Destacados</h2>
-        <ProductGrid client:load />
+        <ProductGrid featuredOnly={true} client:visible />
     </div>
 </section>

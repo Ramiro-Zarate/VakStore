@@ -1,0 +1,10 @@
+---
+export const prerender = false
+
+import Layout from '../layouts/Layout.astro'
+import CheckoutForm from '../components/CheckoutForm.tsx'
+---
+
+<Layout title="Finalizar compra | Vak Store">
+  <CheckoutForm client:load />
+</Layout>

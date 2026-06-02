@@ -39,7 +39,7 @@ export default function CartDrawer() {
                 <div key={item.productVariantId} className={styles.item}>
                   <div className={styles.itemImage}>
                     {item.productImage ? (
-                      <img src={item.productImage} alt={item.productName} />
+                      <img src={item.productImage} alt={item.productName} loading="lazy" decoding="async" />
                     ) : (
                       <div className={styles.imagePlaceholder}>Sin imagen</div>
                     )}
@@ -86,7 +86,13 @@ export default function CartDrawer() {
                 <span>Total:</span>
                 <span className={styles.totalPrice}>${total.toLocaleString('es-AR')}</span>
               </div>
-              <button className={styles.checkoutButton}>
+              <button
+                className={styles.checkoutButton}
+                onClick={() => {
+                  closeDrawer()
+                  window.location.href = '/checkout'
+                }}
+              >
                 Finalizar compra
               </button>
               <button className={styles.clearButton} onClick={clearCart}>

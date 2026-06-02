@@ -5,6 +5,7 @@ export interface Product {
   category: 'camisetas' | 'shorts' | 'camperas'
   image_url: string | null
   is_active: boolean
+  is_featured: boolean
   created_at: string
   updated_at: string
 }
@@ -41,12 +42,15 @@ export interface Profile {
 export interface Order {
   id: string
   user_id: string | null
+  email: string | null
+  customer_name: string | null
   status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
   total_amount: number
   shipping_address: string | null
   shipping_city: string | null
   shipping_postal_code: string | null
   payment_intent_id: string | null
+  payment_status: string | null
   created_at: string
   updated_at: string
 }
@@ -69,6 +73,14 @@ export interface CartItem {
   created_at: string
 }
 
+export interface WebhookEvent {
+  id: string
+  provider: string
+  external_id: string
+  payload: unknown | null
+  processed_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -76,32 +88,53 @@ export type Database = {
         Row: Product
         Insert: Omit<Product, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Product>
+        Relationships: []
       }
       product_variants: {
         Row: ProductVariant
         Insert: Omit<ProductVariant, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<ProductVariant>
+        Relationships: []
       }
       profiles: {
         Row: Profile
         Insert: Omit<Profile, 'created_at' | 'updated_at'>
         Update: Partial<Profile>
+        Relationships: []
       }
       orders: {
         Row: Order
         Insert: Omit<Order, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Order>
+        Relationships: []
       }
       order_items: {
         Row: OrderItem
         Insert: Omit<OrderItem, 'id' | 'created_at'>
         Update: Partial<OrderItem>
+        Relationships: []
       }
       cart_items: {
         Row: CartItem
         Insert: Omit<CartItem, 'id' | 'created_at'>
         Update: Partial<CartItem>
+        Relationships: []
+      }
+      webhook_events: {
+        Row: WebhookEvent
+        Insert: Omit<WebhookEvent, 'id' | 'processed_at'>
+        Update: Partial<WebhookEvent>
+        Relationships: []
       }
     }
+    Views: { [_ in never]: never }
+    Functions: {
+      decrement_stock: {
+        Args: { p_variant_id: string; p_qty: number }
+        Returns: number
+      }
+    }
+    Enums: { [_ in never]: never }
+    CompositeTypes: { [_ in never]: never }
   }
 }

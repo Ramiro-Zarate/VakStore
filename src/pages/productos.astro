@@ -20,11 +20,11 @@ const filters = {
     <button class="filter-toggle" id="filterToggle">Filtros</button>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <aside class="sidebar" id="filterSidebar">
-      <FilterSidebar client:load />
+      <FilterSidebar client:visible />
     </aside>
     <section class="content">
       <h1 class="page-title">Todos los productos</h1>
-      <ProductGrid client:load />
+      <ProductGrid client:visible />
     </section>
   </div>
 </Layout>

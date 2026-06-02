@@ -42,7 +42,10 @@ export const GET: APIRoute = async ({ params }) => {
 
     return new Response(JSON.stringify({ product }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600'
+      }
     })
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Internal server error' }), {

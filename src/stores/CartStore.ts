@@ -41,9 +41,27 @@ function loadFromStorage(): void {
   }
 }
 
-// Save to localStorage
+// Debounced save to localStorage
+let saveTimer: ReturnType<typeof setTimeout> | null = null
 function saveToStorage(): void {
   if (typeof window === 'undefined') return
+  if (saveTimer) clearTimeout(saveTimer)
+  const snapshot = JSON.stringify(state.items)
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, snapshot)
+    } catch {
+      // Ignore storage errors (quota, private mode, etc.)
+    }
+  }, 250)
+}
+
+function saveToStorageImmediate(): void {
+  if (typeof window === 'undefined') return
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items))
   } catch {
@@ -119,7 +137,7 @@ export function updateQuantity(variantId: string, quantity: number): void {
 
 export function clearCart(): void {
   state.items = []
-  saveToStorage()
+  saveToStorageImmediate()
   notifyListeners()
 }
 

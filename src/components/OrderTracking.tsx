@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
 import styles from './OrderTracking.module.css'
 
 interface OrderItem {
@@ -60,38 +59,23 @@ export default function OrderTracking() {
     setError(null)
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            *,
-            product_variant (
-              size,
-              version,
-              product (
-                name,
-                image_url
-              )
-            )
-          )
-        `)
-        .eq('id', orderId)
-        .single()
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
 
-      if (fetchError || !data) {
-        setError('Pedido no encontrado')
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || 'No se pudo verificar el pedido')
+        setVerified(false)
+        setOrder(null)
         return
       }
 
-      if (data.email !== email) {
-        setError('El email no coincide con este pedido')
-        setVerified(false)
-        setOrder(null)
-      } else {
-        setVerified(true)
-        setOrder(data as Order)
-      }
+      setVerified(true)
+      setOrder(data.order as Order)
     } catch (err) {
       setError('Error al buscar el pedido')
     } finally {
@@ -147,7 +131,7 @@ export default function OrderTracking() {
             </button>
           </form>
         </div>
-      ) : (
+      ) : order ? (
         <div className={styles.orderCard}>
           <div className={styles.orderHeader}>
             <div>
@@ -176,7 +160,7 @@ export default function OrderTracking() {
               <div key={item.id} className={styles.item}>
                 <div className={styles.itemImage}>
                   {item.product_variant?.product?.image_url ? (
-                    <img src={item.product_variant.product.image_url} alt="" />
+                    <img src={item.product_variant.product.image_url} alt="" loading="lazy" decoding="async" />
                   ) : (
                     <div className={styles.imagePlaceholder}>Sin imagen</div>
                   )}
@@ -198,7 +182,7 @@ export default function OrderTracking() {
             <span className={styles.totalPrice}>${order.total_amount.toLocaleString('es-AR')}</span>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

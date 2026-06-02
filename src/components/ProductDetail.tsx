@@ -66,7 +66,7 @@ export default function ProductDetail({ product }: Props) {
 
       <div className={styles.imageSection}>
         {product.image_url ? (
-          <img src={product.image_url} alt={product.name} className={styles.image} />
+          <img src={product.image_url} alt={product.name} className={styles.image} loading="eager" decoding="async" />
         ) : (
           <div className={styles.imagePlaceholder}>Sin imagen</div>
         )}

@@ -27,7 +27,7 @@ const categories = [
       {categories.map(category => (
         <a href={`/productos?category=${category.slug}`} class={styles.card}>
           <div class={styles.imageWrapper}>
-            <img src={category.image} alt={category.name} class={styles.image} />
+            <img src={category.image} alt={category.name} class={styles.image} loading="lazy" decoding="async" />
             <div class={styles.overlay}></div>
           </div>
           <div class={styles.content}>
