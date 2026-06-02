@@ -24,20 +24,27 @@ Node: `>=22.12.0`.
 
 ## 2. Variables de entorno
 
-| Variable | Scope | Uso |
-|---|---|---|
-| `PUBLIC_SUPABASE_URL` | cliente + server | URL del proyecto Supabase |
-| `PUBLIC_SUPABASE_ANON_KEY` | cliente + server | Cliente público de Supabase (anon) |
-| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Bypass de RLS. Solo en `scripts/` y en endpoints `/api/*` server-side. **Nunca importar en código del cliente.** |
-| `MP_ACCESS_TOKEN` | **server only** | Token privado de Mercado Pago |
-| `MP_PUBLIC_KEY` | cliente | Llave pública (solo si se usa Bricks embebido) |
-| `MP_WEBHOOK_SECRET` | **server only** | Secreto para validar firma de webhooks |
-| `RESEND_API_KEY` | **server only** | API key de Resend |
+| Variable | Scope | Uso | Estado |
+|---|---|---|---|
+| `PUBLIC_SUPABASE_URL` | cliente + server | URL del proyecto Supabase | Requerida |
+| `PUBLIC_SUPABASE_ANON_KEY` | cliente + server | Cliente público de Supabase (anon) | Requerida |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | Bypass de RLS. Solo en `scripts/` y en endpoints `/api/*` server-side. **Nunca importar en código del cliente.** | Requerida |
+| `MP_ACCESS_TOKEN` | **server only** | Token privado de Mercado Pago | Requerida (test o prod) |
+| `MP_WEBHOOK_SECRET` | **server only** | Secreto para validar firma de webhooks | Requerida si `MP_MOCK_MODE` está desactivado |
+| `MP_MOCK_MODE` | server | `true` = simular pago sin llamar a MP. `false` o vacío = flow real. | Opcional, default `false` |
+| `PUBLIC_SITE_URL` | server | URL base para back_urls de MP y redirects del checkout. | Requerida |
+| `RESEND_API_KEY` | **server only** | API key de Resend | Opcional, sin esto emails se loggean |
+| `RESEND_FROM_EMAIL` | server | Email del sender (ej. `onboarding@resend.dev`) | Opcional, default `onboarding@resend.dev` |
+| `UPSTASH_REDIS_REST_URL` | server | Rate limiting (Upstash) | Opcional, sin esto el rate limit deja pasar |
+| `UPSTASH_REDIS_REST_TOKEN` | server | Rate limiting (Upstash) | Opcional |
+| `SENTRY_DSN` | server | Captura de errores en producción | Opcional, sin esto Sentry se desactiva |
+| `SENTRY_AUTH_TOKEN` | server | Auth token para subir source maps a Sentry | Opcional, solo para CI |
 
 **Reglas:**
 - `PUBLIC_*` se exponen al cliente. Todo lo demás es server-only.
 - `SUPABASE_SERVICE_ROLE_KEY` debe **nunca** aparecer en `src/lib/supabase.ts` ni en componentes. Solo en `src/lib/supabaseAdmin.ts` (server).
 - `.env` está en `.gitignore`. Verificar con `git log --all --full-history -- .env` antes de cada release.
+- Los servicios opcionales (Upstash, Sentry, Resend) funcionan con configuración parcial: si falta la env var, el código degrada con un warning, no rompe.
 
 ---
 
@@ -49,11 +56,15 @@ src/
 ├── hooks/              # Custom React hooks
 ├── layouts/            # Layout.astro (único)
 ├── lib/
-│   ├── auth.ts         # Helpers de Supabase Auth
-│   ├── supabase.ts     # Cliente anon (universal)
-│   ├── supabaseAdmin.ts# Cliente service_role (server only)
-│   ├── email.ts        # Wrapper de Resend
-│   └── types.ts        # Tipos compartidos + Database
+│   ├── auth.ts              # Helpers de Supabase Auth
+│   ├── supabase.ts          # Cliente anon (universal)
+│   ├── supabaseAdmin.ts     # Cliente service_role (server only, lazy init)
+│   ├── mp.ts                # SDK Mercado Pago (server only, lazy init)
+│   ├── email.ts             # Wrapper de Resend
+│   ├── orderProcessing.ts   # Lógica de "pago aprobado" compartida
+│   ├── rateLimit.ts         # Rate limiting con Upstash (degrada si no hay config)
+│   ├── checkoutSchema.ts    # Zod schemas
+│   └── types.ts             # Tipos compartidos + Database
 ├── pages/
 │   ├── api/            # Endpoints server-side
 │   │   ├── checkout.ts
@@ -62,11 +73,12 @@ src/
 │   │   └── products/...
 │   ├── auth/           # Callbacks OAuth, verificación
 │   ├── camisetas/      # Detalle de producto
+│   ├── checkout.astro  # Form de checkout
 │   ├── pedido/         # Tracking de pedido
 │   └── *.astro         # Páginas públicas
 ├── stores/
 │   ├── AuthStore.ts    # Singleton auth
-│   └── CartStore.ts    # Singleton cart (localStorage)
+│   └── CartStore.ts    # Singleton cart (localStorage con debounce)
 └── styles/global.css   # Estilos globales
 ```
 
@@ -158,8 +170,9 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] `Cache-Control` en `/api/products`
 - [x] Headers de seguridad en `vercel.json`
 - [x] Mover `OrderTracking` a endpoint server-side con id+email
+- [x] **Lazy init** de `mp.ts` y `supabaseAdmin.ts` (fix del build de Vercel con env vars no-PUBLIC)
 
-### ✅ Fase 2 — Pasarela Mercado Pago (cerrado)
+### ✅ Fase 2 — Pasarela Mercado Pago (cerrado en código)
 - [x] Schema: `orders.email`, `orders.customer_name`, `orders.payment_status`, tabla `webhook_events`
 - [x] RPC `decrement_stock(p_variant_id uuid, p_qty int)` en Supabase
 - [x] Instalar `mercadopago`, `zod`, `resend`
@@ -168,16 +181,19 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] UI `/checkout` con form de datos
 - [x] Wire `CartDrawer.checkoutButton` → `/checkout`
 - [x] Email confirmación con Resend
-- [ ] Probar con sandbox MP (manual con `npm run dev` + ngrok)
+- [x] Paginación del catálogo (12 productos por página)
+- [x] Rate limiting con Upstash en `/api/checkout` y `/api/orders/[id]`
+- [x] Sentry setup (placeholder, se activa con `SENTRY_DSN` en Vercel)
+- [x] **Mock mode de MP** (`MP_MOCK_MODE=true`) para testear sin cuenta MP verificada
+- [ ] Probar con sandbox MP real (bloqueado por onboarding de cuenta MP al 50%)
 
-### ⏳ Fase 3 — Robustez
-- [ ] Paginación en catálogo
-- [ ] Rate limiting (Upstash) en `/api/checkout` y auth
+### ⏳ Fase 3 — Robustez (pendiente)
 - [ ] Refund automático si oversell
-- [ ] Sentry
 - [ ] Tests Playwright del flow completo
+- [ ] Configurar cuentas de Upstash y Sentry con keys reales
+- [ ] Completar onboarding de MP al 80%+ y sacar mock mode
 
-### ⏳ Fase 4 — Escalar
+### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization
 - [ ] Búsqueda full-text
 - [ ] Panel admin propio
@@ -208,3 +224,56 @@ npm run preview      # preview local del build
 npm run seed         # sembrar DB desde scripts/data/stock.xlsx (requiere service_role)
 npm run create-sample# generar scripts/data/stock-sample.xlsx de ejemplo
 ```
+
+---
+
+## 9. Mock mode de Mercado Pago
+
+Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
+
+- Setear `MP_MOCK_MODE=true` en Vercel (o localmente en `.env`)
+- El endpoint `/api/checkout` NO llama a MP
+- Simula el pago aprobado en línea: decrementa stock, manda email, marca order como `paid`
+- Redirige al usuario directo a `/pedido/[id]`
+
+**Para volver al flow real:** setear `MP_MOCK_MODE=false` o borrar la env var.
+
+---
+
+## 10. Estado actual de Mercado Pago
+
+- ✅ Código completo: SDK, preference, webhook con firma + idempotencia
+- ✅ Webhook configurado en panel de MP
+- ⚠️ Cuenta de vendedor MP al 50% de integración
+- ⚠️ Test users se crean sin email (bug de MP en esta cuenta)
+- 🛠 Workaround activo: `MP_MOCK_MODE=true` en Vercel para desbloquear el flow E2E
+- 📞 Bloqueado por soporte de MP hasta que respondan
+
+---
+
+## 11. Setup para producción (cuando MP esté destrabado)
+
+1. Crear cuenta en [upstash.com](https://upstash.com), crear Redis DB, pegar:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+2. Crear proyecto en [sentry.io](https://sentry.io), copiar DSN:
+   - `SENTRY_DSN`
+   - Opcional: `SENTRY_AUTH_TOKEN` para subir source maps
+3. Completar onboarding de MP al 80%+
+4. Cambiar `MP_ACCESS_TOKEN` de TEST a PRODUCCIÓN
+5. Setear `MP_MOCK_MODE=false` o borrar la env var
+6. Configurar webhook de MP con la URL de producción
+
+---
+
+## 12. Cómo probar el flow E2E con mock mode
+
+1. Asegurarse que `MP_MOCK_MODE=true` está en Vercel
+2. Ir a `https://vak-store.vercel.app/productos`
+3. Agregar 1 producto al carrito
+4. Click en carrito → "Finalizar compra"
+5. Llenar el form
+6. Click "Pagar con Mercado Pago"
+7. Te redirige directo a `/pedido/[id]` con status `paid`
+8. Verificar email de confirmación
+9. Verificar stock decrementado en Supabase

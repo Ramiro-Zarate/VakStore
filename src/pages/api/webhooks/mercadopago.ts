@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import { Payment } from 'mercadopago'
 import { getMpClient } from '../../../lib/mp'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
-import { sendOrderConfirmationEmail } from '../../../lib/email'
+import { processApprovedPayment, markOrderCancelled } from '../../../lib/orderProcessing'
 
 export const prerender = false
 
@@ -14,28 +14,6 @@ interface MPWebhookBody {
   data?: { id?: string | number }
   action?: string
   user_id?: number | string
-}
-
-interface OrderItemForEmail {
-  product_variant_id: string
-  quantity: number
-  unit_price: number
-  product_variant?: {
-    size: string
-    version: string
-    product?: { name: string } | null
-  } | null
-}
-
-interface OrderForEmail {
-  id: string
-  email: string | null
-  customer_name: string | null
-  total_amount: number
-  shipping_address: string | null
-  shipping_city: string | null
-  shipping_postal_code: string | null
-  order_items?: OrderItemForEmail[]
 }
 
 function verifySignature(rawBody: string, signatureHeader: string | null, requestId: string | null): boolean {
@@ -140,112 +118,12 @@ export const POST: APIRoute = async ({ request }) => {
   const orderId = externalReference
 
   if (status === 'approved') {
-    const { data: currentOrder } = await getSupabaseAdmin()
-      .from('orders')
-      .select('status')
-      .eq('id', orderId)
-      .maybeSingle()
-
-    if (currentOrder && (currentOrder as { status: string }).status === 'cancelled') {
-      console.warn('[webhook] payment approved for cancelled order', { orderId })
-      return new Response(JSON.stringify({ ok: true, already_cancelled: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
-
-    const { data: orderItemsRaw } = await getSupabaseAdmin()
-      .from('order_items')
-      .select('product_variant_id, quantity')
-      .eq('order_id', orderId)
-
-    const orderItems = (orderItemsRaw ?? []) as Array<{ product_variant_id: string; quantity: number }>
-
-    let oversell = false
-    for (const item of orderItems) {
-      const { data: rpcData, error: rpcError } = await getSupabaseAdmin().rpc('decrement_stock', {
-        p_variant_id: item.product_variant_id,
-        p_qty: item.quantity
-      } as any)
-
-      if (rpcError) {
-        console.error('[webhook] decrement_stock failed', rpcError, item)
-        oversell = true
-        break
-      }
-      if (rpcData === 0) {
-        console.error('[webhook] oversell detected', item)
-        oversell = true
-        break
-      }
-    }
-
-    if (oversell) {
-      await (getSupabaseAdmin()
-        .from('orders')
-        .update({
-          status: 'cancelled',
-          payment_status: 'rejected',
-          payment_intent_id: externalId
-        })
-        .eq('id', orderId) as any)
-    } else {
-      await (getSupabaseAdmin()
-        .from('orders')
-        .update({
-          status: 'paid',
-          payment_status: 'approved',
-          payment_intent_id: externalId
-        })
-        .eq('id', orderId) as any)
-
-      const { data: orderRaw } = await getSupabaseAdmin()
-        .from('orders')
-        .select(`
-          id, email, customer_name, total_amount,
-          shipping_address, shipping_city, shipping_postal_code,
-          order_items (
-            product_variant_id, quantity, unit_price,
-            product_variant (
-              size, version,
-              product ( name )
-            )
-          )
-        `)
-        .eq('id', orderId)
-        .maybeSingle()
-
-      if (orderRaw) {
-        const order = orderRaw as unknown as OrderForEmail
-        const items = (order.order_items ?? []).map(it => ({
-          name: it.product_variant?.product?.name ?? 'Producto',
-          version: it.product_variant?.version ?? '',
-          size: it.product_variant?.size ?? '',
-          quantity: it.quantity,
-          unitPrice: Number(it.unit_price)
-        }))
-
-        await sendOrderConfirmationEmail({
-          orderId: order.id,
-          customerName: order.customer_name ?? 'Cliente',
-          customerEmail: order.email ?? '',
-          totalAmount: Number(order.total_amount),
-          items,
-          shippingAddress: order.shipping_address ?? '',
-          shippingCity: order.shipping_city ?? '',
-          shippingPostalCode: order.shipping_postal_code ?? ''
-        })
-      }
+    const result = await processApprovedPayment(orderId, externalId)
+    if (result.oversell) {
+      console.error('[webhook] oversell detected, refund may be needed', { orderId })
     }
   } else if (status === 'rejected' || status === 'cancelled') {
-    await (getSupabaseAdmin()
-      .from('orders')
-      .update({
-        status: 'cancelled',
-        payment_status: status,
-        payment_intent_id: externalId
-      })
-      .eq('id', orderId) as any)
+    await markOrderCancelled(orderId, externalId, status)
   }
 
   return new Response(JSON.stringify({ ok: true }), {

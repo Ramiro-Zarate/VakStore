@@ -85,3 +85,42 @@
 .error {
   color: var(--bg-light);
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem 0;
+  flex-wrap: wrap;
+}
+
+.pageButton {
+  padding: 0.6rem 1.2rem;
+  background-color: #1d1d1d;
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: var(--font-size-s);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pageButton:hover:not(:disabled) {
+  background-color: var(--bg-light);
+  border-color: var(--bg-light);
+}
+
+.pageButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  font-size: var(--font-size-s);
+  color: var(--text-primary);
+  min-width: 180px;
+  text-align: center;
+}

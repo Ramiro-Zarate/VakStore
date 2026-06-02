@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import { timingSafeEqual } from 'node:crypto'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
+import { rateLimit, getClientIdentifier } from '../../../lib/rateLimit'
 
 export const prerender = false
 
@@ -18,6 +19,23 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export const POST: APIRoute = async ({ params, request }) => {
+  const ip = getClientIdentifier(request)
+  const rl = await rateLimit('order-track', ip, 10, '1 m')
+  if (!rl.success) {
+    return new Response(
+      JSON.stringify({ error: 'Demasiados intentos. Probá en un minuto.' }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': String(rl.limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(rl.reset)
+        }
+      }
+    )
+  }
+
   const { id } = params
 
   if (!id || !UUID_REGEX.test(id)) {

@@ -3,10 +3,29 @@ import { Preference } from 'mercadopago'
 import { getMpClient, SITE_URL } from '../../lib/mp'
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin'
 import { checkoutSchema } from '../../lib/checkoutSchema'
+import { processApprovedPayment } from '../../lib/orderProcessing'
+import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
 
 export const prerender = false
 
 export const POST: APIRoute = async ({ request }) => {
+  const ip = getClientIdentifier(request)
+  const rl = await rateLimit('checkout', ip, 5, '1 m')
+  if (!rl.success) {
+    return new Response(
+      JSON.stringify({ error: 'Demasiados intentos. Probá en un minuto.' }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': String(rl.limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(rl.reset)
+        }
+      }
+    )
+  }
+
   let body: unknown
   try {
     body = await request.json()
@@ -148,6 +167,25 @@ export const POST: APIRoute = async ({ request }) => {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
+  }
+
+  if (import.meta.env.MP_MOCK_MODE === 'true') {
+    const mockPaymentId = `MOCK-${orderId.slice(0, 8)}-${Date.now()}`
+    const result = await processApprovedPayment(orderId, mockPaymentId)
+    if (!result.success) {
+      return new Response(
+        JSON.stringify({ error: 'No se pudo procesar el pago simulado' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+    return new Response(
+      JSON.stringify({
+        mock: true,
+        orderId,
+        init_point: `${SITE_URL}/pedido/${orderId}`
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 
   const preference = new Preference(getMpClient())
