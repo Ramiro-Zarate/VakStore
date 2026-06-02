@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import { Preference } from 'mercadopago'
-import { mpClient, SITE_URL } from '../../lib/mp'
-import { supabaseAdmin } from '../../lib/supabaseAdmin'
+import { getMpClient, SITE_URL } from '../../lib/mp'
+import { getSupabaseAdmin } from '../../lib/supabaseAdmin'
 import { checkoutSchema } from '../../lib/checkoutSchema'
 
 export const prerender = false
@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request }) => {
   const { items, customer } = parsed.data
   const variantIds = items.map(i => i.variantId)
 
-  const { data: variants, error: variantsError } = await supabaseAdmin
+  const { data: variants, error: variantsError } = await getSupabaseAdmin()
     .from('product_variants')
     .select(`
       id,
@@ -111,7 +111,7 @@ export const POST: APIRoute = async ({ request }) => {
     })
   }
 
-  const { data: order, error: orderError } = await supabaseAdmin
+  const { data: order, error: orderError } = await getSupabaseAdmin()
     .from('orders')
     .insert({
       user_id: null,
@@ -137,20 +137,20 @@ export const POST: APIRoute = async ({ request }) => {
 
   const orderId = (order as { id: string }).id
 
-  const { error: itemsError } = await supabaseAdmin
+  const { error: itemsError } = await getSupabaseAdmin()
     .from('order_items')
     .insert(orderItems.map(item => ({ ...item, order_id: orderId })) as any)
 
   if (itemsError) {
     console.error('[checkout] order_items insert failed', itemsError)
-    await supabaseAdmin.from('orders').delete().eq('id', orderId)
+    await getSupabaseAdmin().from('orders').delete().eq('id', orderId)
     return new Response(JSON.stringify({ error: 'No se pudieron registrar los items' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
-  const preference = new Preference(mpClient)
+  const preference = new Preference(getMpClient())
 
   try {
     const result = await preference.create({
@@ -181,7 +181,7 @@ export const POST: APIRoute = async ({ request }) => {
     )
   } catch (err) {
     console.error('[checkout] MP preference create failed', err)
-    const { error: cancelError } = await supabaseAdmin
+    const { error: cancelError } = await getSupabaseAdmin()
       .from('orders')
       .update({ status: 'cancelled', payment_status: 'rejected' } as never)
       .eq('id', orderId)

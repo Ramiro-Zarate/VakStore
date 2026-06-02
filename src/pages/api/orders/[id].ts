@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro'
 import { timingSafeEqual } from 'node:crypto'
-import { supabaseAdmin } from '../../../lib/supabaseAdmin'
+import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
 
 export const prerender = false
 
@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     })
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('orders')
     .select(`
       id,

@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { Payment } from 'mercadopago'
-import { mpClient } from '../../../lib/mp'
-import { supabaseAdmin } from '../../../lib/supabaseAdmin'
+import { getMpClient } from '../../../lib/mp'
+import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
 import { sendOrderConfirmationEmail } from '../../../lib/email'
 
 export const prerender = false
@@ -92,7 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const externalId = String(body.data.id)
 
-  const { error: idempotencyError } = await supabaseAdmin
+  const { error: idempotencyError } = await getSupabaseAdmin()
     .from('webhook_events')
     .insert({
       provider: 'mercadopago',
@@ -114,7 +114,7 @@ export const POST: APIRoute = async ({ request }) => {
     })
   }
 
-  const paymentClient = new Payment(mpClient)
+  const paymentClient = new Payment(getMpClient())
   let payment
   try {
     payment = await paymentClient.get({ id: Number(externalId) })
@@ -140,7 +140,7 @@ export const POST: APIRoute = async ({ request }) => {
   const orderId = externalReference
 
   if (status === 'approved') {
-    const { data: currentOrder } = await supabaseAdmin
+    const { data: currentOrder } = await getSupabaseAdmin()
       .from('orders')
       .select('status')
       .eq('id', orderId)
@@ -154,7 +154,7 @@ export const POST: APIRoute = async ({ request }) => {
       })
     }
 
-    const { data: orderItemsRaw } = await supabaseAdmin
+    const { data: orderItemsRaw } = await getSupabaseAdmin()
       .from('order_items')
       .select('product_variant_id, quantity')
       .eq('order_id', orderId)
@@ -163,7 +163,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     let oversell = false
     for (const item of orderItems) {
-      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('decrement_stock', {
+      const { data: rpcData, error: rpcError } = await getSupabaseAdmin().rpc('decrement_stock', {
         p_variant_id: item.product_variant_id,
         p_qty: item.quantity
       } as any)
@@ -181,7 +181,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     if (oversell) {
-      await (supabaseAdmin
+      await (getSupabaseAdmin()
         .from('orders')
         .update({
           status: 'cancelled',
@@ -190,7 +190,7 @@ export const POST: APIRoute = async ({ request }) => {
         })
         .eq('id', orderId) as any)
     } else {
-      await (supabaseAdmin
+      await (getSupabaseAdmin()
         .from('orders')
         .update({
           status: 'paid',
@@ -199,7 +199,7 @@ export const POST: APIRoute = async ({ request }) => {
         })
         .eq('id', orderId) as any)
 
-      const { data: orderRaw } = await supabaseAdmin
+      const { data: orderRaw } = await getSupabaseAdmin()
         .from('orders')
         .select(`
           id, email, customer_name, total_amount,
@@ -238,7 +238,7 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
   } else if (status === 'rejected' || status === 'cancelled') {
-    await (supabaseAdmin
+    await (getSupabaseAdmin()
       .from('orders')
       .update({
         status: 'cancelled',

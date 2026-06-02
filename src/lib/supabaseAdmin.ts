@@ -1,16 +1,20 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './types'
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+let _supabaseAdmin: SupabaseClient<Database> | null = null
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error('Missing PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env')
-}
-
-export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+export function getSupabaseAdmin(): SupabaseClient<Database> {
+  if (_supabaseAdmin) return _supabaseAdmin
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL
+  const supabaseServiceRoleKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    throw new Error('Missing PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env')
   }
-})
+  _supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+  return _supabaseAdmin
+}
