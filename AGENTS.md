@@ -131,7 +131,7 @@ window.location = init_point
 Usuario paga en MP
      ↓
 POST /api/webhooks/mercadopago
-  ├─ Validar firma (HMAC con MP_WEBHOOK_SECRET)
+  ├─ Validar firma con `WebhookSignatureValidator` (SDK v3, HMAC, tolerance 5min)
   ├─ Idempotencia: INSERT en webhook_events con unique(provider, external_id). Si conflicto, 200 sin hacer nada.
   ├─ mercadopago.payment.findById(dataId)
   ├─ external_reference → orderId
@@ -185,9 +185,20 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] Rate limiting con Upstash en `/api/checkout` y `/api/orders/[id]`
 - [x] Sentry setup (placeholder, se activa con `SENTRY_DSN` en Vercel)
 - [x] **Mock mode de MP** (`MP_MOCK_MODE=true`) para testear sin cuenta MP verificada
-- [ ] Probar con sandbox MP real (bloqueado por onboarding de cuenta MP al 50%)
+- [x] Probar con sandbox MP real (pendiente de cuenta MP, ver Fase 2.5)
+
+### ✅ Fase 2.5 — Fixes finales de MP (cerrado)
+- [x] Fix typo `MP_ACCES_TOKEN` → `MP_ACCESS_TOKEN` en `.env`
+- [x] Webhook firma: migrar de `verifySignature` custom a `WebhookSignatureValidator` oficial de la SDK v3 (dataId del query, tolerance 5min, anti-replay)
+- [x] Eliminar import muerto de `node:crypto` en `src/pages/api/webhooks/mercadopago.ts`
+- [ ] Validar flow E2E con tarjeta sandbox APRO (`MP_MOCK_MODE=false` + token TEST) — bloqueado por cuenta MP al 50% de onboarding
 
 ### ⏳ Fase 3 — Robustez (pendiente)
+> **Orden de ejecución sugerido** (por dependencia):
+> 1. **Tests Playwright E2E** — habilita validar los demás cambios sin romper prod. Asume Fase 2.5 mergeada.
+> 2. **Refund automático por oversell** — depende de los tests para validar el path de error.
+> 3. **Upstash + Sentry con keys reales** — independiente de MP.
+> 4. **MP onboarding 80%+ y sacar mock mode** — depende de soporte externo de MP. Cuando esto pase, rotar `MP_ACCESS_TOKEN` a producción y setear `MP_MOCK_MODE=false`.
 - [ ] Refund automático si oversell
 - [ ] Tests Playwright del flow completo
 - [ ] Configurar cuentas de Upstash y Sentry con keys reales
@@ -238,16 +249,19 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 
 **Para volver al flow real:** setear `MP_MOCK_MODE=false` o borrar la env var.
 
+`MP_MOCK_MODE` queda como **fallback opcional** (no dependencia) desde Fase 2.5.
+
 ---
 
 ## 10. Estado actual de Mercado Pago
 
-- ✅ Código completo: SDK, preference, webhook con firma + idempotencia
+- ✅ Código completo: SDK v3, preference, webhook con `WebhookSignatureValidator` oficial + idempotencia
 - ✅ Webhook configurado en panel de MP
+- ✅ Estructura final lista (Fase 2.5): typo fixed, webhook validado con SDK oficial
 - ⚠️ Cuenta de vendedor MP al 50% de integración
 - ⚠️ Test users se crean sin email (bug de MP en esta cuenta)
-- 🛠 Workaround activo: `MP_MOCK_MODE=true` en Vercel para desbloquear el flow E2E
-- 📞 Bloqueado por soporte de MP hasta que respondan
+- 🛠 `MP_MOCK_MODE=true` en Vercel como **fallback opcional** (no dependencia)
+- 📞 Pendiente: validar con tarjeta sandbox + sacar mock cuando MP onboarding llegue a 80%
 
 ---
 

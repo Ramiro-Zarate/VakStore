@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro'
-import { createHmac, timingSafeEqual } from 'node:crypto'
-import { Payment } from 'mercadopago'
+import { Payment, WebhookSignatureValidator, InvalidWebhookSignatureError } from 'mercadopago'
 import { getMpClient } from '../../../lib/mp'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
 import { processApprovedPayment, markOrderCancelled } from '../../../lib/orderProcessing'
@@ -16,36 +15,37 @@ interface MPWebhookBody {
   user_id?: number | string
 }
 
-function verifySignature(rawBody: string, signatureHeader: string | null, requestId: string | null): boolean {
-  if (!webhookSecret || !signatureHeader) return false
-
-  const parts = Object.fromEntries(
-    signatureHeader.split(',').map(p => p.split('=') as [string, string])
-  )
-  const ts = parts.ts
-  const hash = parts.v1
-  if (!ts || !hash) return false
-
-  const manifest = requestId ? `${ts}.${requestId}.${rawBody}` : `${ts}.${rawBody}`
-
-  const expected = createHmac('sha256', webhookSecret).update(manifest).digest('hex')
-  const expectedBuf = Buffer.from(expected, 'hex')
-  const receivedBuf = Buffer.from(hash, 'hex')
-
-  if (expectedBuf.length !== receivedBuf.length) {
-    timingSafeEqual(expectedBuf, expectedBuf)
-    return false
-  }
-  return timingSafeEqual(expectedBuf, receivedBuf)
-}
-
 export const POST: APIRoute = async ({ request }) => {
   const rawBody = await request.text()
-  const signature = request.headers.get('x-signature')
-  const requestId = request.headers.get('x-request-id')
+  const url = new URL(request.url)
+  const dataId = url.searchParams.get('data.id')
 
-  if (!verifySignature(rawBody, signature, requestId)) {
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+  if (!webhookSecret) {
+    console.error('[webhook] MP_WEBHOOK_SECRET not configured')
+    return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
+  try {
+    WebhookSignatureValidator.validate({
+      xSignature: request.headers.get('x-signature'),
+      xRequestId: request.headers.get('x-request-id'),
+      dataId,
+      secret: webhookSecret,
+      toleranceSeconds: 300
+    })
+  } catch (err) {
+    if (err instanceof InvalidWebhookSignatureError) {
+      console.warn('[webhook] signature rejected', { reason: err.reason, requestId: err.requestId })
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
+    console.error('[webhook] signature validation error', err)
+    return new Response(JSON.stringify({ error: 'Signature validation failed' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
     })
@@ -95,7 +95,7 @@ export const POST: APIRoute = async ({ request }) => {
   const paymentClient = new Payment(getMpClient())
   let payment
   try {
-    payment = await paymentClient.get({ id: Number(externalId) })
+    payment = await paymentClient.get({ id: externalId })
   } catch (err) {
     console.error('[webhook] payment lookup failed', err)
     return new Response(JSON.stringify({ error: 'Payment lookup failed' }), {
