@@ -1,6 +1,6 @@
 ---
 import styles from './Nav.module.css';
-import CartButton from './CartButton.tsx';
+import CartIsland from './CartIsland.tsx';
 import AuthNav from './AuthNav.tsx';
 import MobileMenu from './MobileMenu.tsx';
 
@@ -40,7 +40,7 @@ const links = [
 
     <div class={styles.actions}>
       <AuthNav client:load />
-      <CartButton client:load />
+      <CartIsland client:load />
       <MobileMenu client:load />
     </div>
   </div>
