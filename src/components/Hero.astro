@@ -2,14 +2,55 @@
 import styles from './Hero.module.css';
 ---
 
-<section class={styles.hero}>
-    <div class={styles.heroSection}>
-        <span class={styles.badge}>Nuevo stock</span>
-        <h2>Vestí tu <span>pasión</span>.</h2>
-        <p class={styles.subtitle}>Tu colección de camisetas empieza acá. Diseños exclusivos, telas importadas y envíos a todo el país.</p>
-        <div class={styles.heroActions}>
-            <a href="">ver camisetas</a>
-            <a href="">liquidación</a>
-        </div>
+<section class={styles.hero} aria-labelledby="hero-title">
+  <div class={styles.background} aria-hidden="true">
+    <div class={styles.grain}></div>
+  </div>
+
+  <div class={styles.inner}>
+    <div class={styles.content}>
+      <span class={styles.badge}>
+        <span class={styles.badgeDot} aria-hidden="true"></span>
+        Nuevo stock
+      </span>
+      <h1 id="hero-title" class={styles.title}>
+        Vestí tu <span class={styles.titleAccent}>pasión</span>.
+      </h1>
+      <p class={styles.subtitle}>
+        Tu colección de camisetas empieza acá. Diseños exclusivos, telas importadas y envíos a todo el país.
+      </p>
+      <div class={styles.actions}>
+        <a href="/productos" class={`${styles.cta} ${styles.ctaPrimary}`}>
+          Ver camisetas
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12" />
+            <polyline points="12 5 19 12 12 19" />
+          </svg>
+        </a>
+        <a href="/productos?sale=true" class={`${styles.cta} ${styles.ctaSecondary}`}>Liquidación</a>
+      </div>
     </div>
+
+    <div class={styles.metaRow} aria-hidden="true">
+      <div class={styles.metaItem}>
+        <span class={styles.metaNumber}>250+</span>
+        <span class={styles.metaLabel}>Modelos</span>
+      </div>
+      <div class={styles.metaDivider}></div>
+      <div class={styles.metaItem}>
+        <span class={styles.metaNumber}>48h</span>
+        <span class={styles.metaLabel}>Envío</span>
+      </div>
+      <div class={styles.metaDivider}></div>
+      <div class={styles.metaItem}>
+        <span class={styles.metaNumber}>3</span>
+        <span class={styles.metaLabel}>Cuotas sin interés</span>
+      </div>
+    </div>
+  </div>
+
+  <div class={styles.scrollHint} aria-hidden="true">
+    <span class={styles.scrollText}>Scroll</span>
+    <span class={styles.scrollLine}></span>
+  </div>
 </section>

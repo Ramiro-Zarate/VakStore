@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useCartStore } from '../hooks/useCartStore'
+import { Field, Input, Icon } from './Primitives'
 import styles from './CheckoutForm.module.css'
 
 interface FormState {
@@ -18,27 +19,28 @@ const EMPTY_FORM: FormState = {
   postalCode: ''
 }
 
+type FormErrors = Partial<Record<keyof FormState, string>>
+
 export default function CheckoutForm() {
   const { items, getCartTotal, clearCart } = useCartStore()
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('error') === 'payment_failed') {
-      setError('El pago no se completó. Probá nuevamente.')
+      setSubmitError('El pago no se completó. Probá nuevamente.')
     }
   }, [])
 
   if (items.length === 0) {
     return (
-      <div className={styles.container}>
-        <div className={styles.empty}>
-          <h2>Tu carrito está vacío</h2>
-          <p>Agregá productos para continuar con la compra.</p>
-          <a href="/productos" className={styles.emptyButton}>Ver productos</a>
-        </div>
+      <div className={styles.empty}>
+        <h1 className={styles.emptyTitle}>Tu carrito está vacío</h1>
+        <p className={styles.emptyDesc}>Agregá productos antes de finalizar la compra.</p>
+        <a href="/productos" className={styles.emptyButton}>Ver productos</a>
       </div>
     )
   }
@@ -47,11 +49,32 @@ export default function CheckoutForm() {
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }))
+    if (fieldErrors[key]) {
+      setFieldErrors(prev => ({ ...prev, [key]: undefined }))
+    }
+  }
+
+  const validate = (): FormErrors => {
+    const errors: FormErrors = {}
+    if (!form.email.trim()) errors.email = 'Ingresá tu email'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Email inválido'
+    if (!form.name.trim()) errors.name = 'Ingresá tu nombre'
+    if (!form.address.trim()) errors.address = 'Ingresá tu dirección'
+    if (!form.city.trim()) errors.city = 'Ingresá tu ciudad'
+    if (!form.postalCode.trim()) errors.postalCode = 'Ingresá tu código postal'
+    return errors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
+    setSubmitError(null)
+    const errors = validate()
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      const firstError = document.querySelector('[aria-invalid="true"]') as HTMLElement | null
+      firstError?.focus()
+      return
+    }
     setSubmitting(true)
 
     try {
@@ -70,15 +93,15 @@ export default function CheckoutForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'No se pudo iniciar el pago')
+        setSubmitError(data.error || 'No se pudo iniciar el pago')
         setSubmitting(false)
         return
       }
 
       clearCart()
       window.location.href = data.init_point
-    } catch (err) {
-      setError('Error de conexión. Intentá nuevamente.')
+    } catch {
+      setSubmitError('Error de conexión. Intentá nuevamente.')
       setSubmitting(false)
     }
   }
@@ -86,116 +109,167 @@ export default function CheckoutForm() {
   return (
     <div className={styles.container}>
       <div>
-        <h1 className={styles.title}>Finalizar compra</h1>
-        <form onSubmit={handleSubmit} className={styles.formCard}>
-          {error && <div className={`${styles.alert} ${styles.alertError}`}>{error}</div>}
+        <header className={styles.header}>
+          <p className={styles.eyebrow}>— Finalizar compra</p>
+          <h1 className={styles.title}>Casi listo</h1>
+        </header>
+
+        <form onSubmit={handleSubmit} className={styles.formCard} noValidate>
+          {submitError && (
+            <div className={`${styles.alert} ${styles.alertError}`} role="alert">
+              <span className={styles.alertIcon} aria-hidden="true">
+                <Icon size={18}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </Icon>
+              </span>
+              {submitError}
+            </div>
+          )}
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Datos de contacto</h2>
-            <div className={styles.field}>
-              <label htmlFor="email" className={styles.label}>Email</label>
-              <input
-                id="email"
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionNumber} aria-hidden="true">1</span>
+              <h2 className={styles.sectionTitle}>Datos de contacto</h2>
+            </div>
+            <Field
+              label="Email"
+              required
+              error={fieldErrors.email}
+            >
+              <Input
                 type="email"
-                required
                 value={form.email}
                 onChange={e => handleChange('email', e.target.value)}
-                className={styles.input}
                 placeholder="tu@email.com"
                 autoComplete="email"
+                invalid={!!fieldErrors.email}
               />
-            </div>
-            <div className={styles.field}>
-              <label htmlFor="name" className={styles.label}>Nombre completo</label>
-              <input
-                id="name"
+            </Field>
+            <Field
+              label="Nombre completo"
+              required
+              error={fieldErrors.name}
+            >
+              <Input
                 type="text"
-                required
                 value={form.name}
                 onChange={e => handleChange('name', e.target.value)}
-                className={styles.input}
                 placeholder="Tu nombre"
                 autoComplete="name"
+                invalid={!!fieldErrors.name}
               />
-            </div>
+            </Field>
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Dirección de envío</h2>
-            <div className={styles.field}>
-              <label htmlFor="address" className={styles.label}>Dirección</label>
-              <input
-                id="address"
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionNumber} aria-hidden="true">2</span>
+              <h2 className={styles.sectionTitle}>Dirección de envío</h2>
+            </div>
+            <Field
+              label="Dirección"
+              required
+              error={fieldErrors.address}
+            >
+              <Input
                 type="text"
-                required
                 value={form.address}
                 onChange={e => handleChange('address', e.target.value)}
-                className={styles.input}
                 placeholder="Calle, número, piso, depto"
                 autoComplete="street-address"
+                invalid={!!fieldErrors.address}
               />
-            </div>
-            <div className={styles.row}>
-              <div className={styles.field}>
-                <label htmlFor="city" className={styles.label}>Ciudad</label>
-                <input
-                  id="city"
+            </Field>
+            <div className={styles.fieldGroup}>
+              <Field
+                label="Ciudad"
+                required
+                error={fieldErrors.city}
+              >
+                <Input
                   type="text"
-                  required
                   value={form.city}
                   onChange={e => handleChange('city', e.target.value)}
-                  className={styles.input}
                   placeholder="CABA, Córdoba, etc."
                   autoComplete="address-level2"
+                  invalid={!!fieldErrors.city}
                 />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="postalCode" className={styles.label}>Código postal</label>
-                <input
-                  id="postalCode"
+              </Field>
+              <Field
+                label="Código postal"
+                required
+                error={fieldErrors.postalCode}
+              >
+                <Input
                   type="text"
-                  required
+                  inputMode="numeric"
                   value={form.postalCode}
                   onChange={e => handleChange('postalCode', e.target.value)}
-                  className={styles.input}
                   placeholder="C1414"
                   autoComplete="postal-code"
+                  invalid={!!fieldErrors.postalCode}
                 />
-              </div>
+              </Field>
             </div>
           </section>
 
           <button
             type="submit"
+            className={styles.submit}
             disabled={submitting}
-            className={styles.submitButton}
+            aria-busy={submitting || undefined}
           >
             {submitting ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago'}
+            {!submitting && (
+              <Icon size={18} aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </Icon>
+            )}
           </button>
+          <p className={styles.secureNote}>
+            <Icon size={12} aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </Icon>
+            Pago seguro procesado por Mercado Pago
+          </p>
         </form>
       </div>
 
-      <aside className={styles.summary}>
-        <h2 className={styles.summaryTitle}>Resumen</h2>
-        {items.map(item => (
-          <div key={item.productVariantId} className={styles.summaryItem}>
-            <div className={styles.summaryImage}>
-              {item.productImage && (
-                <img src={item.productImage} alt={item.productName} loading="lazy" decoding="async" />
-              )}
-            </div>
-            <div className={styles.summaryInfo}>
-              <p className={styles.summaryName}>{item.productName}</p>
-              <p className={styles.summaryVariant}>{item.version} · Talle {item.size}</p>
-              <p className={styles.summaryVariant}>Cantidad: {item.quantity}</p>
-            </div>
-            <p className={styles.summaryPrice}>
-              ${(item.price * item.quantity).toLocaleString('es-AR')}
-            </p>
-          </div>
-        ))}
+      <aside className={styles.summary} aria-labelledby="summary-title">
+        <h2 id="summary-title" className={styles.summaryTitle}>
+          <Icon size={18} aria-hidden="true">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
+          </Icon>
+          Resumen del pedido
+        </h2>
+        <ul className={styles.summaryList}>
+          {items.map(item => (
+            <li key={item.productVariantId} className={styles.summaryItem}>
+              <div className={styles.summaryImage}>
+                {item.productImage && (
+                  <img src={item.productImage} alt="" loading="lazy" decoding="async" />
+                )}
+              </div>
+              <div className={styles.summaryInfo}>
+                <p className={styles.summaryName}>{item.productName}</p>
+                <p className={styles.summaryVariant}>
+                  {item.version} · Talle {item.size} · ×{item.quantity}
+                </p>
+              </div>
+              <p className={styles.summaryPrice}>
+                ${(item.price * item.quantity).toLocaleString('es-AR')}
+              </p>
+            </li>
+          ))}
+        </ul>
         <div className={styles.summaryTotal}>
-          <span>Total</span>
+          <span className={styles.summaryTotalLabel}>Total</span>
           <span className={styles.summaryTotalAmount}>
             ${total.toLocaleString('es-AR')}
           </span>

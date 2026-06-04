@@ -5,37 +5,69 @@ const categories = [
   {
     name: 'Camisetas',
     slug: 'camisetas',
-    image: '/images/categorias/camiseta.jpeg'
+    image: '/images/categorias/camiseta.jpeg',
+    description: 'Titulares, suplentes y ediciones especiales'
   },
   {
     name: 'Shorts',
     slug: 'shorts',
-    image: '/images/categorias/short.jpeg'
+    image: '/images/categorias/short.jpeg',
+    description: 'Combina con tu camiseta favorita'
   },
   {
     name: 'Camperas',
     slug: 'camperas',
-    image: '/images/categorias/campera.jpeg'
+    image: '/images/categorias/campera.jpeg',
+    description: 'Para el banco, para la tribuna'
   }
 ]
 ---
 
-<section class={styles.explora}>
-  <div class={styles.container}>
-    <h2 class={styles.title}>Explora</h2>
-    <div class={styles.grid}>
-      {categories.map(category => (
-        <a href={`/productos?category=${category.slug}`} class={styles.card}>
-          <div class={styles.imageWrapper}>
-            <img src={category.image} alt={category.name} class={styles.image} loading="lazy" decoding="async" />
-            <div class={styles.overlay}></div>
-          </div>
-          <div class={styles.content}>
-            <h3 class={styles.name}>{category.name}</h3>
-            <span class={styles.button}>Ver productos</span>
-          </div>
-        </a>
+<section class={styles.explora} aria-labelledby="explora-title">
+  <div class={`${styles.container} container`}>
+    <header class={styles.header}>
+      <div>
+        <span class={styles.eyebrow}>— Categorías</span>
+        <h2 id="explora-title" class={styles.title}>Explora</h2>
+      </div>
+      <p class={styles.lead}>Tres universos. Misma pasión. Encontrá lo que buscás.</p>
+    </header>
+
+    <ul class={styles.grid}>
+      {categories.map((category, index) => (
+        <li class={styles.item}>
+          <a
+            href={`/productos?category=${category.slug}`}
+            class={styles.card}
+            style={`--delay: ${index * 80}ms`}
+          >
+            <span class={styles.number} aria-hidden="true">
+              0{index + 1} <span class={styles.numberDivider}></span> 03
+            </span>
+            <div class={styles.imageWrapper}>
+              <img
+                src={category.image}
+                alt=""
+                class={styles.image}
+                loading="lazy"
+                decoding="async"
+              />
+              <div class={styles.overlay}></div>
+            </div>
+            <div class={styles.content}>
+              <h3 class={styles.name}>{category.name}</h3>
+              <p class={styles.description}>{category.description}</p>
+              <span class={styles.button}>
+                Ver productos
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </span>
+            </div>
+          </a>
+        </li>
       ))}
-    </div>
+    </ul>
   </div>
 </section>

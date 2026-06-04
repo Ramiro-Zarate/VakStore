@@ -1,62 +1,47 @@
 ---
 import styles from './Nav.module.css';
 import CartButton from './CartButton.tsx';
-import CartDrawer from './CartDrawer.tsx';
+import AuthNav from './AuthNav.tsx';
+import MobileMenu from './MobileMenu.tsx';
+
+const pathname = Astro.url.pathname;
+const isCurrent = (href: string) => {
+  if (href === '/') return pathname === '/';
+  return pathname.startsWith(href.split('?')[0]);
+};
+
+const links = [
+  { href: '/', label: 'Inicio' },
+  { href: '/productos', label: 'Productos' },
+  { href: '/productos?sale=true', label: 'Ofertas' },
+  { href: '/cuenta#contacto', label: 'Contacto' }
+];
 ---
 
 <header class={styles.header}>
-    <nav class={styles.nav}>
-        <a href="/" class={styles.logo}>VakStore</a>
-        <div class={styles.navLinks}>
-            <a href="/">Inicio</a>
-            <a href="/productos">Productos</a>
-            <a href="">Ofertas</a>
-            <a href="">Contacto</a>
-        </div>
-        <div class={styles.navActions}>
-            <a href="/login" class={styles.loginLink}>Iniciar sesión</a>
-            <a href="/registro" class={styles.registerLink}>Registrarse</a>
-            <CartButton client:load />
-        </div>
+  <div class={styles.inner}>
+    <a href="/" class={styles.logo} aria-label="Vak Store - Ir al inicio">VakStore</a>
+
+    <nav class={styles.primaryNav} aria-label="Principal">
+      <ul class={styles.navList}>
+        {links.map(link => (
+          <li>
+            <a
+              href={link.href}
+              class={styles.navLink}
+              aria-current={isCurrent(link.href) ? 'page' : undefined}
+            >
+              {link.label}
+            </a>
+          </li>
+        ))}
+      </ul>
     </nav>
-    <CartDrawer client:load />
+
+    <div class={styles.actions}>
+      <AuthNav client:load />
+      <CartButton client:load />
+      <MobileMenu client:load />
+    </div>
+  </div>
 </header>
-
-<style>
-  .loginLink,
-  .registerLink {
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-base);
-    text-decoration: none;
-    border-radius: 4px;
-    transition: all 0.2s;
-  }
-
-  .loginLink {
-    color: var(--text-primary);
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-  }
-
-  .loginLink:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.5);
-  }
-
-  .registerLink {
-    color: var(--text-primary);
-    background-color: var(--bg-light);
-  }
-
-  .registerLink:hover {
-    background-color: #b0000f;
-  }
-
-  @media (max-width: 768px) {
-    .loginLink,
-    .registerLink {
-      padding: 0.5rem 0.75rem;
-      font-size: var(--font-size-sm);
-    }
-  }
-</style>

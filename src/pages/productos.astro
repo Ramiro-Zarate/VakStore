@@ -13,144 +13,86 @@ const filters = {
   minPrice: searchParams.get('minPrice') || undefined,
   maxPrice: searchParams.get('maxPrice') || undefined
 }
+
+const hasFilters = Object.values(filters).some(Boolean)
+const titlePrefix = hasFilters ? 'Resultados' : 'Todos los productos'
 ---
 
-<Layout title="Productos | Vak Store">
+<Layout title={`${titlePrefix} | Vak Store`} description="Explorá nuestra colección completa de camisetas de fútbol. Filtrá por liga, talle y precio.">
   <div class="productos-page">
-    <button class="filter-toggle" id="filterToggle">Filtros</button>
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
-    <aside class="sidebar" id="filterSidebar">
-      <FilterSidebar client:visible />
-    </aside>
-    <section class="content">
-      <h1 class="page-title">Todos los productos</h1>
+    <FilterSidebar client:visible />
+
+    <section class="content" aria-labelledby="productos-title">
+      <header class="content-header">
+        <p class="eyebrow">— Catálogo</p>
+        <h1 id="productos-title" class="page-title">Productos</h1>
+        <p class="page-subtitle">Encontrá tu próxima camiseta. Filtrá por liga, talle o precio.</p>
+      </header>
       <ProductGrid client:visible />
     </section>
   </div>
 </Layout>
 
-<script>
-  const toggle = document.getElementById('filterToggle')
-  const sidebar = document.getElementById('filterSidebar')
-  const overlay = document.querySelector('.sidebar-overlay')
-
-  if (toggle && sidebar) {
-    toggle.addEventListener('click', () => {
-      sidebar.classList.toggle('open')
-      document.body.classList.toggle('sidebar-open')
-    })
-  }
-
-  window.addEventListener('filterschange', () => {
-    if (window.innerWidth <= 1024 && sidebar) {
-      sidebar.classList.remove('open')
-      document.body.classList.remove('sidebar-open')
-    }
-  })
-</script>
-
 <style>
   .productos-page {
     display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 2rem;
-    padding: 2rem;
-    max-width: 1600px;
+    grid-template-columns: 300px 1fr;
+    gap: var(--space-6);
+    padding: var(--space-7) var(--space-5);
+    max-width: var(--container-max);
     margin: 0 auto;
-    min-height: calc(100vh - 120px);
-  }
-
-  .sidebar {
-    position: sticky;
-    top: 2rem;
-    height: fit-content;
+    align-items: start;
   }
 
   .content {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .content-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--color-accent);
+    margin: 0;
   }
 
   .page-title {
-    font-family: var(--font-titles);
-    font-size: var(--font-size-3xl);
-    color: var(--text-primary);
-    margin: 0 0 1rem;
+    font-family: var(--font-display);
+    font-size: var(--text-4xl);
+    font-weight: var(--weight-bold);
+    line-height: var(--leading-none);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text-primary);
+    margin: 0;
   }
 
-  .filter-toggle {
-    display: none;
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    padding: 0.875rem 1.5rem;
-    background-color: var(--bg-light);
-    color: var(--text-primary);
-    border: none;
-    border-radius: 4px;
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    cursor: pointer;
-    z-index: 998;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-
-  .filter-toggle:hover {
-    background-color: #b0000f;
+  .page-subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
+    margin: 0;
+    max-width: 560px;
   }
 
   @media (max-width: 1024px) {
     .productos-page {
       grid-template-columns: 1fr;
-      padding: 1rem;
+      padding: var(--space-5);
+      gap: var(--space-5);
     }
 
-    .filter-toggle {
-      display: block;
-    }
-
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 300px;
-      height: 100vh;
-      z-index: 1000;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease;
-      padding-top: 2rem;
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
-    }
-
-    .content {
-      padding-top: 3rem;
-    }
-
-    .sidebar-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      z-index: 999;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-
-    :global(body.sidebar-open) .sidebar-overlay {
-      opacity: 1;
-      pointer-events: auto;
-    }
-  }
-
-  @media (min-width: 1025px) {
-    .filter-toggle,
-    .sidebar-overlay {
-      display: none;
+    .page-title {
+      font-size: var(--text-3xl);
     }
   }
 </style>

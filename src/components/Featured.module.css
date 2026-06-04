@@ -1,18 +1,83 @@
-.destacado {
-    max-width: 1600px;
-    margin: 0 auto;
-    padding: 4rem 0.5rem;
+.featured {
+  padding-block: var(--space-11);
+  background-color: var(--color-bg-base);
 }
 
-.destacadoSection {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-accent);
+  margin-bottom: var(--space-3);
 }
 
 .title {
-    font-family: var(--font-titles);
-    font-size: 2.5rem;
-    color: var(--text-primary);
-    text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-text-primary);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.viewAll svg {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.viewAll:hover {
+  border-color: var(--color-text-primary);
+  background-color: var(--color-bg-elev-1);
+  color: var(--color-text-primary);
+}
+
+.viewAll:hover svg {
+  transform: translateX(4px);
+}
+
+@media (max-width: 640px) {
+  .featured {
+    padding-block: var(--space-9);
+  }
+
+  .title {
+    font-size: var(--text-4xl);
+  }
 }

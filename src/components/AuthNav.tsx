@@ -3,20 +3,16 @@ import UserMenu from './UserMenu'
 import styles from './AuthNav.module.css'
 
 export default function AuthNav() {
-  const { user, loading } = useAuth()
+  const { user, initialized } = useAuth()
 
-  if (loading) {
-    return <div class={styles.loading} />
-  }
-
-  if (user) {
-    return <UserMenu client:load />
+  if (initialized && user) {
+    return <UserMenu />
   }
 
   return (
-    <div class={styles.guestNav}>
-      <a href="/login" class={styles.loginLink}>Iniciar sesión</a>
-      <a href="/registro" class={styles.registerLink}>Registrarse</a>
+    <div className={styles.guestNav}>
+      <a href="/login" className={styles.loginLink}>Iniciar sesión</a>
+      <a href="/registro" className={styles.registerLink}>Crear cuenta</a>
     </div>
   )
 }

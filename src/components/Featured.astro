@@ -3,9 +3,21 @@ import styles from './Featured.module.css'
 import ProductGrid from './ProductGrid.tsx'
 ---
 
-<section class={styles.destacado}>
-    <div class={styles.destacadoSection}>
-        <h2 class={styles.title}>Destacados</h2>
-        <ProductGrid featuredOnly={true} client:visible />
-    </div>
+<section class={styles.featured} aria-labelledby="featured-title">
+  <div class={`${styles.container} container`}>
+    <header class={styles.header}>
+      <div>
+        <span class={styles.eyebrow}>— Esta semana</span>
+        <h2 id="featured-title" class={styles.title}>Destacados</h2>
+      </div>
+      <a href="/productos" class={styles.viewAll}>
+        Ver todo
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="12 5 19 12 12 19" />
+        </svg>
+      </a>
+    </header>
+    <ProductGrid featuredOnly={true} client:visible />
+  </div>
 </section>

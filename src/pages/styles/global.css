@@ -1,37 +1,26 @@
-:root{
-    --bg-prymary: #131313;
-    --bg-secondary: #6d6d6d;
-    --bg-light: #970005;
+@import '../../styles/tokens.css';
+@import '../../styles/reset.css';
+@import '../../styles/typography.css';
+@import '../../styles/utilities.css';
+@import '../../styles/motion.css';
+@import '../../styles/a11y.css';
 
-    --text-primary: #ffffff;
-    --text-muted: #e30613;
-
-    --font-titles: 'Electrolize', sans-serif;
-    --font-body: 'Inter', sans-serif;
-    --font-nav: 'Grape Nuts', cursive;
-
-  --font-size-xs: 0.75rem;
-  --font-size-s: 0.875rem;
-  --font-size-m: 1rem;
-  --font-size-l: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-size-2xl: 2rem;
-  --font-size-3xl: 2.5rem;
-
+:root {
+  --bg-prymary: var(--color-bg-base);
+  --bg-secondary: var(--color-bg-elev-1);
+  --bg-light: var(--color-accent);
+  --text-primary: var(--color-text-primary);
+  --text-muted: var(--color-text-secondary);
+  --font-titles: var(--font-display);
+  --font-nav: var(--font-logo);
+  --font-size-xs: var(--text-xs);
+  --font-size-s: var(--text-sm);
+  --font-size-sm: var(--text-sm);
+  --font-size-m: var(--text-base);
+  --font-size-base: var(--text-base);
+  --font-size-l: var(--text-lg);
+  --font-size-lg: var(--text-lg);
+  --font-size-xl: var(--text-xl);
+  --font-size-2xl: var(--text-2xl);
+  --font-size-3xl: var(--text-3xl);
 }
-
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    background-color: var(--bg-prymary);
-    color: var(--text-primary);
-    font-family: var(--font-body);
-}
-

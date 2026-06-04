@@ -1,47 +1,65 @@
-.loading {
-  width: 80px;
-  height: 28px;
-}
-
 .guestNav {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.loginLink,
-.registerLink {
-  padding: 0.5rem 1rem;
-  font-size: var(--font-size-base);
-  text-decoration: none;
-  border-radius: 4px;
-  transition: all 0.2s;
+  gap: var(--space-2);
 }
 
 .loginLink {
-  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  color: var(--color-text-primary);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  text-decoration: none;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .loginLink:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: var(--color-text-primary);
+  background-color: var(--color-bg-elev-1);
+  color: var(--color-text-primary);
 }
 
 .registerLink {
-  color: var(--text-primary);
-  background-color: var(--bg-light);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  color: var(--color-text-on-accent);
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .registerLink:hover {
-  background-color: #b0000f;
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: var(--color-text-on-accent);
 }
 
-@media (max-width: 768px) {
-  .loginLink,
+@media (min-width: 640px) {
   .registerLink {
-    padding: 0.5rem 0.75rem;
-    font-size: var(--font-size-sm);
+    display: inline-flex;
   }
 }

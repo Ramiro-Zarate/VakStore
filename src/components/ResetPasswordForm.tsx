@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './useAuth'
+import { Field, Input, Icon } from './Primitives'
 import styles from './ResetPasswordForm.module.css'
 
 export default function ResetPasswordForm() {
@@ -8,12 +9,23 @@ export default function ResetPasswordForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setLoading(true)
+    setEmailError(null)
 
+    if (!email.trim()) {
+      setEmailError('Ingresá tu email')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Email inválido')
+      return
+    }
+
+    setLoading(true)
     try {
       const { error } = await resetPassword(email)
       if (error) {
@@ -21,7 +33,7 @@ export default function ResetPasswordForm() {
       } else {
         setSent(true)
       }
-    } catch (err) {
+    } catch {
       setError('Error inesperado. Intentalo de nuevo.')
     } finally {
       setLoading(false)
@@ -32,13 +44,16 @@ export default function ResetPasswordForm() {
     return (
       <div className={styles.container}>
         <div className={styles.successCard}>
-          <svg className={styles.successIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-          </svg>
-          <h1>Email enviado</h1>
-          <p>Revisá tu correo y seguí las instrucciones para restablecer tu contraseña.</p>
-          <a href="/login" className={styles.backLink}>Volver al login</a>
+          <span className={styles.successIcon} aria-hidden="true">
+            <Icon size={32}>
+              <polyline points="20 6 9 17 4 12" />
+            </Icon>
+          </span>
+          <h1 className={styles.successTitle}>Email enviado</h1>
+          <p className={styles.successDesc}>
+            Revisá tu correo y seguí las instrucciones para restablecer tu contraseña.
+          </p>
+          <a href="/login" className={styles.successButton}>Volver al login</a>
         </div>
       </div>
     )
@@ -47,31 +62,65 @@ export default function ResetPasswordForm() {
   return (
     <div className={styles.container}>
       <div className={styles.formCard}>
-        <h1 className={styles.title}>Recuperar contraseña</h1>
-        <p className={styles.subtitle}>Ingresá tu email y te enviaremos un enlace para restablecer tu contraseña.</p>
+        <header className={styles.header}>
+          <p className={styles.eyebrow}>— ¿Olvidaste tu contraseña?</p>
+          <h1 className={styles.title}>Recuperar contraseña</h1>
+          <p className={styles.subtitle}>
+            Ingresá tu email y te enviaremos un enlace para restablecer tu contraseña.
+          </p>
+        </header>
 
-        <form onSubmit={handleSubmit} className={styles.form}>
-          {error && <div className={styles.error}>{error}</div>}
+        <form onSubmit={handleSubmit} className={styles.form} noValidate>
+          {error && (
+            <div className={`${styles.alert} ${styles.alertError}`} role="alert">
+              <span className={styles.alertIcon} aria-hidden="true">
+                <Icon size={16}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </Icon>
+              </span>
+              <span>{error}</span>
+            </div>
+          )}
 
-          <div className={styles.field}>
-            <label htmlFor="email" className={styles.label}>Email</label>
-            <input
-              id="email"
+          <Field label="Email" required error={emailError}>
+            <Input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={styles.input}
+              onChange={e => {
+                setEmail(e.target.value)
+                if (emailError) setEmailError(null)
+              }}
               placeholder="tu@email.com"
+              autoComplete="email"
+              invalid={!!emailError}
               required
             />
-          </div>
+          </Field>
 
-          <button type="submit" className={styles.submitButton} disabled={loading}>
+          <button
+            type="submit"
+            className={styles.submit}
+            disabled={loading}
+            aria-busy={loading || undefined}
+          >
             {loading ? 'Enviando...' : 'Enviar email'}
+            {!loading && (
+              <Icon size={16} aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </Icon>
+            )}
           </button>
-        </form>
 
-        <a href="/login" className={styles.backLink}>Volver al login</a>
+          <a href="/login" className={styles.backLink}>
+            <Icon size={14} aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </Icon>
+            Volver al login
+          </a>
+        </form>
       </div>
     </div>
   )

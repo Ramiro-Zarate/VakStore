@@ -1,188 +1,234 @@
-.container {
-  padding: 1.5rem;
-  background-color: var(--text-primary);
-  border-radius: 8px;
+.trigger {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.trigger:hover {
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-bg-overlay);
+  z-index: var(--z-drawer);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-base) var(--ease-out);
+  backdrop-filter: blur(2px);
+}
+
+.overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  background-color: var(--color-bg-elev-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   height: fit-content;
   position: sticky;
-  top: 2rem;
+  top: calc(var(--header-height) + var(--space-3));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .title {
-  font-family: var(--font-titles);
-  font-size: var(--font-size-xl);
-  color: var(--bg-light);
-  margin: 0 0 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.filterGroup {
-  margin-bottom: 1.25rem;
-}
-
-.label {
-  display: block;
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.select,
-.input {
-  width: 100%;
-  padding: 0.625rem 0.875rem;
-  background-color: var(--bg-light);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.select:hover,
-.input:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.select:focus,
-.input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-
-.priceRow {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-text-primary);
+  margin: 0;
 }
 
-.priceRow .input {
-  flex: 1;
+.titleCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+  border-radius: var(--radius-pill);
 }
 
-.divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 1.5rem 0;
+.closeButton {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.closeButton:hover {
+  border-color: var(--color-text-primary);
+  background-color: var(--color-bg-elev-2);
 }
 
 .activeFilters {
-  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
-.activeFiltersTitle {
-  font-size: var(--font-size-sm);
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
+.activeTitle {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-text-muted);
 }
 
 .activeTags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background-color: var(--accent-color);
-  color: var(--text-primary);
-  border-radius: 4px;
-  font-size: var(--font-size-sm);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  background-color: var(--color-accent-soft);
+  color: var(--color-accent-hover);
+  border: 1px solid var(--color-accent-soft-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: capitalize;
 }
 
 .tagRemove {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
   border: none;
-  color: inherit;
-  padding: 0;
+  border-radius: var(--radius-pill);
+  color: var(--color-accent-hover);
   cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .tagRemove:hover {
-  color: var(--bg-light);
+  background-color: var(--color-accent-soft-strong);
+}
+
+.priceRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--color-border);
 }
 
 .clearButton {
   width: 100%;
-  padding: 0.75rem;
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-size: var(--font-size-base);
+  min-height: 44px;
+  padding: var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
   cursor: pointer;
-  transition: all 0.2s;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
-.clearButton:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.4);
-  color: var(--bg-light);
+.clearButton:hover:not(:disabled) {
+  border-color: var(--color-text-primary);
+  background-color: var(--color-bg-elev-2);
+}
+
+.clearButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 @media (max-width: 1024px) {
-  .container {
+  .trigger {
+    display: inline-flex;
+  }
+
+  .panel {
     position: fixed;
     top: 0;
     left: 0;
-    width: 300px;
-    height: 100vh;
-    z-index: 1000;
+    width: 320px;
+    max-width: 85vw;
+    height: 100dvh;
+    z-index: calc(var(--z-drawer) + 1);
     border-radius: 0;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    border: none;
+    border-right: 1px solid var(--color-border);
     overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-out);
   }
 
-  .container.open {
+  .panel.open {
     transform: translateX(0);
   }
 
-  .overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  .overlay.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
   .closeButton {
-    display: block;
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.5rem;
-    cursor: pointer;
-  }
-
-  .closeButton:hover {
-    color: var(--bg-light);
-  }
-}
-
-@media (min-width: 1025px) {
-  .overlay,
-  .closeButton {
-    display: none;
+    display: inline-flex;
   }
 }

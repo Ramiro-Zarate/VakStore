@@ -1,45 +1,61 @@
 .cartButton {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: var(--font-size-base);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
   cursor: pointer;
-  transition: all 0.2s;
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .cartButton:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: var(--color-text-primary);
+  background-color: var(--color-bg-elev-1);
 }
 
 .icon {
-  width: 20px;
-  height: 20px;
+  display: block;
 }
 
 .text {
-  font-weight: 500;
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .text {
+    display: inline;
+  }
 }
 
 .badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 20px;
-  height: 20px;
-  background-color: var(--bg-light);
-  color: var(--text-primary);
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 700;
-  display: flex;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  background-color: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-bg-base);
 }

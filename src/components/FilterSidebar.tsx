@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
+import { useEscape } from '../hooks/useEscape'
+import { Field, Select, Input, Icon } from './Primitives'
 import styles from './FilterSidebar.module.css'
 
 export interface Filters {
@@ -21,7 +23,7 @@ const CATEGORIES = [
 ]
 
 const SIZES = [
-  { value: '', label: 'Todas' },
+  { value: '', label: 'Todos' },
   { value: 'S', label: 'S' },
   { value: 'M', label: 'M' },
   { value: 'L', label: 'L' },
@@ -51,9 +53,23 @@ function getFiltersFromURL(): Filters {
   }
 }
 
+const FILTER_LABELS: Record<keyof Filters, string> = {
+  category: 'Categoría',
+  size: 'Talle',
+  league: 'Liga',
+  minPrice: 'Precio mín.',
+  maxPrice: 'Precio máx.'
+}
+
 export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProps) {
   const [filters, setFilters] = useState<Filters>(getFiltersFromURL)
   const [isOpen, setIsOpen] = useState(false)
+  const baseId = useId()
+  const idCategory = `${baseId}-category`
+  const idSize = `${baseId}-size`
+  const idLeague = `${baseId}-league`
+  const idMin = `${baseId}-min`
+  const idMax = `${baseId}-max`
 
   useEffect(() => {
     setFilters(getFiltersFromURL())
@@ -66,6 +82,8 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  useEscape(isOpen, () => setIsOpen(false))
 
   const updateURL = (newFilters: Filters) => {
     const params = new URLSearchParams()
@@ -92,28 +110,78 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
     updateURL({})
   }
 
-  const activeFilters = Object.entries(filters).filter(([, value]) => value)
+  const activeFilters = (Object.entries(filters) as [keyof Filters, string | undefined][])
+    .filter(([, value]) => value)
 
   return (
     <>
-      <div className={`${styles.overlay} ${isOpen ? styles.visible : ''}`} onClick={() => setIsOpen(false)} />
-      <aside className={`${styles.container} ${isOpen ? styles.open : ''}`}>
-        <button className={styles.closeButton} onClick={() => setIsOpen(false)}>✕</button>
-        
-        <h3 className={styles.title}>Filtros</h3>
+      <button
+        type="button"
+        className={styles.trigger}
+        onClick={() => setIsOpen(true)}
+        aria-expanded={isOpen}
+        aria-controls="filter-panel"
+      >
+        <Icon size={16} aria-hidden="true">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        </Icon>
+        Filtros
+        {activeFilters.length > 0 && (
+          <span style={{ marginLeft: 'var(--space-1)' }} aria-hidden="true">({activeFilters.length})</span>
+        )}
+      </button>
+
+      <div
+        className={`${styles.overlay} ${isOpen ? styles.visible : ''}`}
+        onClick={() => setIsOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside
+        id="filter-panel"
+        className={`${styles.panel} ${isOpen ? styles.open : ''}`}
+        role="region"
+        aria-label="Filtros de productos"
+      >
+        <div className={styles.header}>
+          <h3 className={styles.title}>
+            Filtros
+            {activeFilters.length > 0 && (
+              <span className={styles.titleCount} aria-label={`${activeFilters.length} activos`}>
+                {activeFilters.length}
+              </span>
+            )}
+          </h3>
+          <button
+            type="button"
+            className={styles.closeButton}
+            onClick={() => setIsOpen(false)}
+            aria-label="Cerrar filtros"
+          >
+            <Icon size={18} aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </Icon>
+          </button>
+        </div>
 
         {activeFilters.length > 0 && (
           <div className={styles.activeFilters}>
-            <span className={styles.activeFiltersTitle}>Filtros activos</span>
+            <span className={styles.activeTitle}>Filtros activos</span>
             <div className={styles.activeTags}>
               {activeFilters.map(([key, value]) => (
                 <span key={key} className={styles.tag}>
-                  {value}
+                  {FILTER_LABELS[key]}: <strong style={{ marginLeft: 2 }}>{value}</strong>
                   <button
+                    type="button"
                     className={styles.tagRemove}
-                    onClick={() => handleChange(key as keyof Filters, '')}
+                    onClick={() => handleChange(key, '')}
+                    aria-label={`Quitar filtro ${FILTER_LABELS[key]} ${value}`}
                   >
-                    ✕
+                    <Icon size={12} aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </Icon>
                   </button>
                 </span>
               ))}
@@ -121,66 +189,61 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
           </div>
         )}
 
-        <div className={styles.filterGroup}>
-          <label className={styles.label}>Categoría</label>
-          <select
-            className={styles.select}
-            value={filters.category || ''}
-            onChange={(e) => handleChange('category', e.target.value)}
-          >
-            {CATEGORIES.map(cat => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
-          </select>
-        </div>
+        <Field id={idCategory} label="Categoría">
+          <Select
+            options={CATEGORIES}
+            value={filters.category ?? ''}
+            onChange={e => handleChange('category', e.target.value)}
+          />
+        </Field>
 
-        <div className={styles.filterGroup}>
-          <label className={styles.label}>Talle</label>
-          <select
-            className={styles.select}
-            value={filters.size || ''}
-            onChange={(e) => handleChange('size', e.target.value)}
-          >
-            {SIZES.map(size => (
-              <option key={size.value} value={size.value}>{size.label}</option>
-            ))}
-          </select>
-        </div>
+        <Field id={idSize} label="Talle">
+          <Select
+            options={SIZES}
+            value={filters.size ?? ''}
+            onChange={e => handleChange('size', e.target.value)}
+          />
+        </Field>
 
-        <div className={styles.filterGroup}>
-          <label className={styles.label}>Liga</label>
-          <select
-            className={styles.select}
-            value={filters.league || ''}
-            onChange={(e) => handleChange('league', e.target.value)}
-          >
-            {LEAGUES.map(league => (
-              <option key={league.value} value={league.value}>{league.label}</option>
-            ))}
-          </select>
-        </div>
+        <Field id={idLeague} label="Liga">
+          <Select
+            options={LEAGUES}
+            value={filters.league ?? ''}
+            onChange={e => handleChange('league', e.target.value)}
+          />
+        </Field>
 
-        <div className={styles.filterGroup}>
-          <label className={styles.label}>Precio</label>
+        <Field id={`${idMin}-group`} label="Precio" optional>
           <div className={styles.priceRow}>
-            <input
+            <Input
+              id={idMin}
               type="number"
-              className={styles.input}
-              placeholder="Min"
-              value={filters.minPrice || ''}
-              onChange={(e) => handleChange('minPrice', e.target.value)}
+              inputMode="numeric"
+              placeholder="Mín."
+              value={filters.minPrice ?? ''}
+              onChange={e => handleChange('minPrice', e.target.value)}
+              aria-label="Precio mínimo"
             />
-            <input
+            <Input
+              id={idMax}
               type="number"
-              className={styles.input}
-              placeholder="Max"
-              value={filters.maxPrice || ''}
-              onChange={(e) => handleChange('maxPrice', e.target.value)}
+              inputMode="numeric"
+              placeholder="Máx."
+              value={filters.maxPrice ?? ''}
+              onChange={e => handleChange('maxPrice', e.target.value)}
+              aria-label="Precio máximo"
             />
           </div>
-        </div>
+        </Field>
 
-        <button className={styles.clearButton} onClick={handleClear}>
+        <div className={styles.divider} aria-hidden="true" />
+
+        <button
+          type="button"
+          className={styles.clearButton}
+          onClick={handleClear}
+          disabled={activeFilters.length === 0}
+        >
           Limpiar filtros
         </button>
       </aside>
@@ -193,9 +256,8 @@ export function useFilters() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    
-    const handleFiltersChange = (e: CustomEvent<Filters>) => {
-      setFilters(e.detail)
+    const handleFiltersChange = (e: Event) => {
+      setFilters((e as CustomEvent<Filters>).detail)
     }
     window.addEventListener('filterschange', handleFiltersChange as EventListener)
     return () => window.removeEventListener('filterschange', handleFiltersChange as EventListener)

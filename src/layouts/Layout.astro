@@ -1,33 +1,72 @@
 ---
 import '../pages/styles/global.css'
 import Nav from '../components/Nav.astro'
+import Footer from '../components/Footer.astro'
 
 interface Props {
   title: string
+  description?: string
+  ogImage?: string
+  noindex?: boolean
 }
 
-const { title } = Astro.props
----
+const {
+  title,
+  description = 'Tienda de camisetas de fútbol. Diseños exclusivos, telas importadas y envíos a todo el país.',
+  ogImage = '/images/og-default.png',
+  noindex = false
+} = Astro.props
 
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString()
+const siteName = 'Vak Store'
+---
 <!DOCTYPE html>
 <html lang="es">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/images/icon.png" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="generator" content={Astro.generator} />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="description" content={description} />
+
+    <link rel="canonical" href={canonicalURL} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={new URL(ogImage, Astro.url).toString()} />
+    <meta property="og:locale" content="es_AR" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={new URL(ogImage, Astro.url).toString()} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Electrolize&family=Grape+Nuts&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lexend:wght@100..900&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&family=Grape+Nuts&display=swap"
     />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&family=Grape+Nuts&display=swap"
+    />
+
     <title>{title}</title>
   </head>
   <body>
+    <a href="#main" class="skip-link">Saltar al contenido</a>
     <Nav />
-    <main>
+    <main id="main" tabindex="-1">
       <slot />
     </main>
+    <Footer />
   </body>
 </html>

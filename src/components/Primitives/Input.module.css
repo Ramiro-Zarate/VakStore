@@ -1,0 +1,85 @@
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-elev-1);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-4);
+  height: 44px;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:hover:not(:disabled):not([aria-invalid="true"]) {
+  border-color: var(--color-text-secondary);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--color-error);
+  background-color: var(--color-error-soft);
+}
+
+.input[aria-invalid="true"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-error-soft);
+}
+
+.sizeSm { height: 36px; font-size: var(--text-sm); }
+.sizeLg { height: 52px; font-size: var(--text-lg); }
+
+.hasLeftIcon { padding-left: 44px; }
+.hasRightIcon { padding-right: 44px; }
+.sizeSm.hasLeftIcon, .sizeSm.hasRightIcon { padding-left: 36px; padding-right: 36px; }
+.sizeLg.hasLeftIcon, .sizeLg.hasRightIcon { padding-left: 52px; padding-right: 52px; }
+
+.iconLeft,
+.iconRight {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.iconLeft { left: var(--space-3); }
+.iconRight { right: var(--space-3); }
+.sizeSm .iconLeft, .sizeSm .iconRight { left: var(--space-2); right: var(--space-2); }
+
+.iconButtonRight {
+  position: absolute;
+  right: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.iconButtonRight:hover { color: var(--color-text-primary); }
+.iconButtonRight:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 1px; }
