@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import * as Sentry from '@sentry/astro'
 import { Preference } from 'mercadopago'
 import { getMpClient, SITE_URL } from '../../lib/mp'
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin'
@@ -219,6 +220,7 @@ export const POST: APIRoute = async ({ request }) => {
     )
   } catch (err) {
     console.error('[checkout] MP preference create failed', err)
+    Sentry.captureException(err, { extra: { stage: 'preference_create', orderId, customerEmail: customer.email } })
     const { error: cancelError } = await getSupabaseAdmin()
       .from('orders')
       .update({ status: 'cancelled', payment_status: 'rejected' } as never)

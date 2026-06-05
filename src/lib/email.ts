@@ -22,6 +22,15 @@ export interface OrderEmailData {
   shippingPostalCode: string
 }
 
+export interface OrderCancelledEmailData {
+  orderId: string
+  customerName: string
+  customerEmail: string
+  totalAmount: number
+  reason: string
+  refunded: boolean
+}
+
 function formatPrice(value: number): string {
   return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
 }
@@ -97,5 +106,47 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<
 
   if (error) {
     console.error('[email] Resend error:', error)
+  }
+}
+
+function buildOrderCancelledEmail(data: OrderCancelledEmailData): string {
+  const refundNote = data.refunded
+    ? `<p style="margin-top:24px;line-height:1.5;">El cobro a tu tarjeta fue revertido automáticamente. El reembolso puede tardar algunos días hábiles en verse reflejado según tu banco.</p>`
+    : `<p style="margin-top:24px;line-height:1.5;">Si tu tarjeta fue debitada, te vamos a estar reintegrando el monto en los próximos días hábiles.</p>`
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#131313;">
+      <h1 style="color:#970005;margin:0 0 16px;">Tu pedido fue cancelado</h1>
+      <p>Hola ${data.customerName},</p>
+      <p>Lamentamos informarte que tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> fue cancelado por el siguiente motivo:</p>
+      <p style="background:#fdf0f1;border-left:3px solid #970005;padding:12px 16px;margin:16px 0;">${data.reason}</p>
+      <p>Importe: <strong>${formatPrice(data.totalAmount)}</strong></p>
+      ${refundNote}
+      <p style="margin-top:24px;font-size:14px;color:#666;">
+        Si tenés alguna duda, respondé este email y te vamos a ayudar.
+      </p>
+    </div>
+  `
+}
+
+export async function sendOrderCancelledEmail(data: OrderCancelledEmailData): Promise<void> {
+  if (!resend) {
+    console.log('[email] Resend not configured, would send cancellation:', {
+      to: data.customerEmail,
+      subject: `Pedido #${data.orderId.slice(0, 8).toUpperCase()} cancelado`,
+      data
+    })
+    return
+  }
+
+  const { error } = await resend.emails.send({
+    from: fromEmail,
+    to: data.customerEmail,
+    subject: `Pedido #${data.orderId.slice(0, 8).toUpperCase()} cancelado`,
+    html: buildOrderCancelledEmail(data)
+  })
+
+  if (error) {
+    console.error('[email] Resend error (cancellation):', error)
   }
 }

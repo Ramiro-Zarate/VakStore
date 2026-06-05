@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro'
+import * as Sentry from '@sentry/astro'
 import { Payment, WebhookSignatureValidator, InvalidWebhookSignatureError } from 'mercadopago'
 import { getMpClient } from '../../../lib/mp'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
@@ -22,6 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!webhookSecret) {
     console.error('[webhook] MP_WEBHOOK_SECRET not configured')
+    Sentry.captureMessage('MP_WEBHOOK_SECRET not configured', { level: 'error' })
     return new Response(JSON.stringify({ error: 'Webhook not configured' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -39,12 +41,17 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (err) {
     if (err instanceof InvalidWebhookSignatureError) {
       console.warn('[webhook] signature rejected', { reason: err.reason, requestId: err.requestId })
+      Sentry.captureMessage('Invalid MP webhook signature', {
+        level: 'warning',
+        extra: { reason: err.reason, requestId: err.requestId, dataId }
+      })
       return new Response(JSON.stringify({ error: 'Invalid signature' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       })
     }
     console.error('[webhook] signature validation error', err)
+    Sentry.captureException(err, { extra: { stage: 'signature_validation', dataId } })
     return new Response(JSON.stringify({ error: 'Signature validation failed' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
@@ -86,6 +93,7 @@ export const POST: APIRoute = async ({ request }) => {
       })
     }
     console.error('[webhook] idempotency insert failed', idempotencyError)
+    Sentry.captureException(idempotencyError, { extra: { stage: 'idempotency_insert', externalId } })
     return new Response(JSON.stringify({ error: 'Idempotency check failed' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -98,6 +106,7 @@ export const POST: APIRoute = async ({ request }) => {
     payment = await paymentClient.get({ id: externalId })
   } catch (err) {
     console.error('[webhook] payment lookup failed', err)
+    Sentry.captureException(err, { extra: { stage: 'payment_lookup', externalId } })
     return new Response(JSON.stringify({ error: 'Payment lookup failed' }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' }
@@ -120,7 +129,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (status === 'approved') {
     const result = await processApprovedPayment(orderId, externalId)
     if (result.oversell) {
-      console.error('[webhook] oversell detected, refund may be needed', { orderId })
+      console.error('[webhook] oversell detected', { orderId, refundStatus: result.refundStatus })
     }
   } else if (status === 'rejected' || status === 'cancelled') {
     await markOrderCancelled(orderId, externalId, status)

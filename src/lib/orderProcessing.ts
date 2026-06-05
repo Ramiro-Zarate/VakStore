@@ -1,5 +1,7 @@
+import * as Sentry from '@sentry/astro'
 import { getSupabaseAdmin } from './supabaseAdmin'
-import { sendOrderConfirmationEmail } from './email'
+import { sendOrderConfirmationEmail, sendOrderCancelledEmail } from './email'
+import { refundPayment } from './mp'
 
 interface OrderItemForEmail {
   product_variant_id: string
@@ -23,9 +25,19 @@ interface OrderForEmail {
   order_items?: OrderItemForEmail[]
 }
 
+interface OrderForCancellation {
+  id: string
+  email: string | null
+  customer_name: string | null
+  total_amount: number
+}
+
+export type RefundStatus = 'completed' | 'failed' | 'skipped'
+
 export interface ProcessApprovedResult {
   success: boolean
   oversell: boolean
+  refundStatus?: RefundStatus
 }
 
 export async function processApprovedPayment(
@@ -41,7 +53,7 @@ export async function processApprovedPayment(
     .maybeSingle()
 
   if (currentOrder && (currentOrder as { status: string }).status === 'cancelled') {
-    return { success: false, oversell: false }
+    return { success: false, oversell: false, refundStatus: 'skipped' }
   }
 
   const { data: orderItemsRaw } = await supabase
@@ -60,11 +72,18 @@ export async function processApprovedPayment(
 
     if (rpcError) {
       console.error('[orderProcessing] decrement_stock failed', rpcError, item)
+      Sentry.captureException(rpcError, {
+        extra: { orderId, paymentId, variantId: item.product_variant_id, qty: item.quantity, stage: 'decrement_stock' }
+      })
       oversell = true
       break
     }
     if (rpcData === 0) {
       console.error('[orderProcessing] oversell detected', item)
+      Sentry.captureMessage('Oversell detected on order', {
+        level: 'warning',
+        extra: { orderId, paymentId, variantId: item.product_variant_id, qty: item.quantity }
+      })
       oversell = true
       break
     }
@@ -79,7 +98,41 @@ export async function processApprovedPayment(
         payment_intent_id: paymentId
       })
       .eq('id', orderId) as any)
-    return { success: false, oversell: true }
+
+    let refundStatus: RefundStatus = 'skipped'
+    if (paymentId) {
+      const refund = await refundPayment(paymentId)
+      if (refund.ok) {
+        console.log('[orderProcessing] refund issued', { orderId, paymentId, refundId: refund.refundId })
+        refundStatus = 'completed'
+      } else {
+        console.error('[orderProcessing] refund failed', { orderId, paymentId, error: refund.error })
+        Sentry.captureException(new Error(`MP refund failed: ${refund.error}`), {
+          extra: { orderId, paymentId, stage: 'refund', mperror: refund.error }
+        })
+        refundStatus = 'failed'
+      }
+    }
+
+    const { data: cancelOrderRaw } = await supabase
+      .from('orders')
+      .select('id, email, customer_name, total_amount')
+      .eq('id', orderId)
+      .maybeSingle()
+
+    if (cancelOrderRaw) {
+      const c = cancelOrderRaw as unknown as OrderForCancellation
+      await sendOrderCancelledEmail({
+        orderId: c.id,
+        customerName: c.customer_name ?? 'Cliente',
+        customerEmail: c.email ?? '',
+        totalAmount: Number(c.total_amount),
+        reason: 'No tenemos stock suficiente para completar tu pedido.',
+        refunded: refundStatus === 'completed'
+      })
+    }
+
+    return { success: false, oversell: true, refundStatus }
   }
 
   await (supabase

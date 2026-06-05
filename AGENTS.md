@@ -136,10 +136,13 @@ POST /api/webhooks/mercadopago
   ├─ mercadopago.payment.findById(dataId)
   ├─ external_reference → orderId
   ├─ Si status='approved':
-  │    ├─ UPDATE orders SET status='paid', payment_id, payment_status='approved'
   │    ├─ Por cada order_item: SELECT decrement_stock(variant_id, quantity)
-  │    │    └─ Si RPC falla (oversell): UPDATE order status='cancelled', disparar refund
-  │    └─ Encolar email "Pedido confirmado" (Resend)
+  │    │    └─ Si RPC falla (oversell):
+  │    │         ├─ UPDATE orders SET status='cancelled', payment_status='rejected', payment_intent_id=paymentId
+  │    │         ├─ MP refund total vía PaymentRefund.total({ payment_id })
+  │    │         └─ Email "Pedido cancelado" (Resend) — con nota de reembolso si el refund salió bien
+  │    ├─ UPDATE orders SET status='paid', payment_id, payment_status='approved'
+  │    └─ Email "Pedido confirmado" (Resend)
   ├─ Si status='rejected'/'cancelled': UPDATE order status='cancelled'
   └─ return 200
      ↓
@@ -199,10 +202,12 @@ MP redirige a back_urls.success → /pedido/[orderId]
 > 2. **Refund automático por oversell** — depende de los tests para validar el path de error.
 > 3. **Upstash + Sentry con keys reales** — independiente de MP.
 > 4. **MP onboarding 80%+ y sacar mock mode** — depende de soporte externo de MP. Cuando esto pase, rotar `MP_ACCESS_TOKEN` a producción y setear `MP_MOCK_MODE=false`.
-- [ ] Refund automático si oversell
+- [x] Refund automático si oversell (vía `PaymentRefund.total({ payment_id })` + email cancelación + Sentry)
 - [ ] Tests Playwright del flow completo
 - [ ] Configurar cuentas de Upstash y Sentry con keys reales
 - [ ] Completar onboarding de MP al 80%+ y sacar mock mode
+
+**Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
 
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization
@@ -256,12 +261,14 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 ## 10. Estado actual de Mercado Pago
 
 - ✅ Código completo: SDK v3, preference, webhook con `WebhookSignatureValidator` oficial + idempotencia
-- ✅ Webhook configurado en panel de MP
-- ✅ Estructura final lista (Fase 2.5): typo fixed, webhook validado con SDK oficial
-- ⚠️ Cuenta de vendedor MP al 50% de integración
+- ✅ Webhook configurado en panel de MP (URL de producción)
+- ✅ Refund automático por oversell implementado (`PaymentRefund.total()`)
+- ✅ Sentry captura de errores en webhook, checkout y orderProcessing
+- ✅ Estructura final lista (Fase 2.5 + Fase 3 refund): typo fixed, webhook validado, refund cableado
+- ⚠️ Cuenta de vendedor MP al ~50% de integración — completar "verificación de cobro" + datos del titular
 - ⚠️ Test users se crean sin email (bug de MP en esta cuenta)
-- 🛠 `MP_MOCK_MODE=true` en Vercel como **fallback opcional** (no dependencia)
-- 📞 Pendiente: validar con tarjeta sandbox + sacar mock cuando MP onboarding llegue a 80%
+- 🛠 `MP_MOCK_MODE` no está en Vercel → corre flow real contra sandbox
+- 📞 Pendiente: validar flow E2E con tarjeta sandbox APRO + completar onboarding al 80%+ para sacar mock definitivamente
 
 ---
 
