@@ -23,22 +23,25 @@ interface MPWebhookBody {
 }
 
 type SignatureResult =
-  | { ok: true }
+  | { ok: true; matchedSource: string }
   | { ok: false; reason: string }
 
 function verifyMpSignature({
   xSignature,
   xRequestId,
-  dataId,
+  dataIdCandidates,
   secret,
 }: {
   xSignature: string | null
   xRequestId: string | null
-  dataId: string | null
+  dataIdCandidates: string[]
   secret: string
 }): SignatureResult {
-  if (!xSignature || !xRequestId || !dataId) {
+  if (!xSignature || !xRequestId) {
     return { ok: false, reason: 'missing_headers' }
+  }
+  if (dataIdCandidates.length === 0) {
+    return { ok: false, reason: 'missing_data_id' }
   }
 
   const parts = xSignature.split(',').map((p) => p.trim())
@@ -62,16 +65,19 @@ function verifyMpSignature({
   const drift = Math.abs(Date.now() / 1000 - tsNum)
   if (drift > 300) return { ok: false, reason: 'expired' }
 
-  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
-  const expected = createHmac('sha256', secret).update(manifest).digest('hex')
+  for (const candidate of dataIdCandidates) {
+    if (!candidate) continue
+    const manifest = `id:${candidate};request-id:${xRequestId};ts:${ts};`
+    const expected = createHmac('sha256', secret).update(manifest).digest('hex')
 
-  const a = Buffer.from(expected, 'hex')
-  const b = Buffer.from(hash, 'hex')
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    return { ok: false, reason: 'mismatch' }
+    const a = Buffer.from(expected, 'hex')
+    const b = Buffer.from(hash, 'hex')
+    if (a.length === b.length && timingSafeEqual(a, b)) {
+      return { ok: true, matchedSource: candidate }
+    }
   }
 
-  return { ok: true }
+  return { ok: false, reason: 'mismatch' }
 }
 
 async function handleWebhook(request: Request): Promise<Response> {
@@ -137,7 +143,9 @@ async function handleWebhook(request: Request): Promise<Response> {
   const sigResult = verifyMpSignature({
     xSignature: request.headers.get('x-signature'),
     xRequestId: request.headers.get('x-request-id'),
-    dataId,
+    dataIdCandidates: [queryId, queryDataId, bodyDataId, bodyResource].filter(
+      (c): c is string => Boolean(c)
+    ),
     secret: webhookSecret
   })
 
@@ -145,6 +153,7 @@ async function handleWebhook(request: Request): Promise<Response> {
     console.warn('[webhook] signature rejected', {
       reason: sigResult.reason,
       dataId,
+      dataIdSource,
       apiVersion,
       action: body.action
     })
@@ -153,6 +162,7 @@ async function handleWebhook(request: Request): Promise<Response> {
       extra: {
         reason: sigResult.reason,
         dataId,
+        dataIdSource,
         apiVersion,
         action: body.action,
         liveMode: body.live_mode
@@ -163,6 +173,13 @@ async function handleWebhook(request: Request): Promise<Response> {
       headers: { 'Content-Type': 'application/json' }
     })
   }
+
+  console.log('[webhook] signature verified', {
+    matchedSource: sigResult.matchedSource,
+    dataId,
+    dataIdSource,
+    apiVersion
+  })
 
   const isPaymentEvent =
     body.type === 'payment' &&
