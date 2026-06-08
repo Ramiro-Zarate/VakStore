@@ -23,7 +23,7 @@ interface MPWebhookBody {
 }
 
 type SignatureResult =
-  | { ok: true; matchedSource: string }
+  | { ok: true; matchedSource: string; matchedTemplate: string }
   | { ok: false; reason: string }
 
 function verifyMpSignature({
@@ -65,15 +65,25 @@ function verifyMpSignature({
   const drift = Math.abs(Date.now() / 1000 - tsNum)
   if (drift > 300) return { ok: false, reason: 'expired' }
 
+  const templateVariants: Array<(id: string, ts: string, reqId: string) => string> = [
+    (id, ts, reqId) => `id:${id};request-id:${reqId};ts:${ts};`,
+    (id, ts, reqId) => `id:${id};request-id:${reqId};ts:${ts};v1:`,
+    (id, ts, reqId) => `id:${id},request-id:${reqId},ts:${ts},`,
+    (id, ts, reqId) => `id:${id};ts:${ts};`,
+    (id, ts, reqId) => `ts:${ts};request-id:${reqId};id:${id};`,
+  ]
+
   for (const candidate of dataIdCandidates) {
     if (!candidate) continue
-    const manifest = `id:${candidate};request-id:${xRequestId};ts:${ts};`
-    const expected = createHmac('sha256', secret).update(manifest).digest('hex')
+    for (const templateFn of templateVariants) {
+      const manifest = templateFn(candidate, ts, xRequestId)
+      const expected = createHmac('sha256', secret).update(manifest).digest('hex')
 
-    const a = Buffer.from(expected, 'hex')
-    const b = Buffer.from(hash, 'hex')
-    if (a.length === b.length && timingSafeEqual(a, b)) {
-      return { ok: true, matchedSource: candidate }
+      const a = Buffer.from(expected, 'hex')
+      const b = Buffer.from(hash, 'hex')
+      if (a.length === b.length && timingSafeEqual(a, b)) {
+        return { ok: true, matchedSource: candidate, matchedTemplate: manifest }
+      }
     }
   }
 
@@ -176,6 +186,7 @@ async function handleWebhook(request: Request): Promise<Response> {
 
   console.log('[webhook] signature verified', {
     matchedSource: sigResult.matchedSource,
+    matchedTemplate: sigResult.matchedTemplate,
     dataId,
     dataIdSource,
     apiVersion
