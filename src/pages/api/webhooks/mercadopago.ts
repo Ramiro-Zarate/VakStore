@@ -40,6 +40,15 @@ async function handleWebhook(request: Request): Promise<Response> {
 
   const dataId = body.data?.id ? String(body.data.id) : null
 
+  console.log('[webhook] validating signature', {
+    dataId,
+    dataIdType: typeof body.data?.id,
+    xSignatureLength: request.headers.get('x-signature')?.length,
+    xSignaturePrefix: request.headers.get('x-signature')?.slice(0, 20),
+    xRequestId: request.headers.get('x-request-id'),
+    bodyLength: rawBody.length
+  })
+
   try {
     WebhookSignatureValidator.validate({
       xSignature: request.headers.get('x-signature'),
