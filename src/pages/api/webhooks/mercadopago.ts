@@ -16,7 +16,7 @@ interface MPWebhookBody {
   user_id?: number | string
 }
 
-export const POST: APIRoute = async ({ request }) => {
+async function handleWebhook(request: Request): Promise<Response> {
   const rawBody = await request.text()
 
   if (!webhookSecret) {
@@ -139,4 +139,17 @@ export const POST: APIRoute = async ({ request }) => {
     status: 200,
     headers: { 'Content-Type': 'application/json' }
   })
+}
+
+export const POST: APIRoute = async ({ request }) => {
+  try {
+    return await handleWebhook(request)
+  } catch (err) {
+    console.error('[webhook] unhandled error', err)
+    Sentry.captureException(err, { extra: { stage: 'unhandled' } })
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
 }
