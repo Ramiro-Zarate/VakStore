@@ -107,13 +107,27 @@ async function handleWebhook(request: Request): Promise<Response> {
   })
 
   const url = new URL(request.url)
-  const dataId =
-    url.searchParams.get('data.id') ||
-    (body.data?.id ? String(body.data.id) : null)
+  const queryId = url.searchParams.get('id')
+  const queryDataId = url.searchParams.get('data.id')
+  const bodyDataId = body.data?.id ? String(body.data.id) : null
+  const bodyResource = body.resource ? String(body.resource) : null
+
+  const dataIdSource = queryId
+    ? 'query_id'
+    : queryDataId
+    ? 'query_data_id'
+    : bodyDataId
+    ? 'body_data'
+    : bodyResource
+    ? 'body_resource'
+    : null
+
+  const dataId = queryId || queryDataId || bodyDataId || bodyResource
 
   console.log('[webhook] validating signature', {
     apiVersion,
     dataId,
+    dataIdSource,
     xSignatureLength: request.headers.get('x-signature')?.length,
     xSignaturePrefix: request.headers.get('x-signature')?.slice(0, 20),
     xRequestId: request.headers.get('x-request-id'),
