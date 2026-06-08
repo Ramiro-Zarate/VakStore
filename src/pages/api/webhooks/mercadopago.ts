@@ -18,8 +18,6 @@ interface MPWebhookBody {
 
 export const POST: APIRoute = async ({ request }) => {
   const rawBody = await request.text()
-  const url = new URL(request.url)
-  const dataId = url.searchParams.get('data.id')
 
   if (!webhookSecret) {
     console.error('[webhook] MP_WEBHOOK_SECRET not configured')
@@ -29,6 +27,18 @@ export const POST: APIRoute = async ({ request }) => {
       headers: { 'Content-Type': 'application/json' }
     })
   }
+
+  let body: MPWebhookBody
+  try {
+    body = JSON.parse(rawBody)
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
+  const dataId = body.data?.id ? String(body.data.id) : null
 
   try {
     WebhookSignatureValidator.validate({
@@ -54,16 +64,6 @@ export const POST: APIRoute = async ({ request }) => {
     Sentry.captureException(err, { extra: { stage: 'signature_validation', dataId } })
     return new Response(JSON.stringify({ error: 'Signature validation failed' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' }
-    })
-  }
-
-  let body: MPWebhookBody
-  try {
-    body = JSON.parse(rawBody)
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
       headers: { 'Content-Type': 'application/json' }
     })
   }
