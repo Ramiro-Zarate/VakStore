@@ -38,6 +38,13 @@ async function handleWebhook(request: Request): Promise<Response> {
     })
   }
 
+  console.log('[webhook] raw inputs', {
+    url: request.url,
+    bodyKeys: body ? Object.keys(body) : null,
+    bodyData: body?.data,
+    body
+  })
+
   const dataId = body.data?.id ? String(body.data.id) : null
 
   console.log('[webhook] validating signature', {
