@@ -11,7 +11,9 @@ const webhookSecret = import.meta.env.MP_WEBHOOK_SECRET
 
 interface MPWebhookBody {
   type?: string
+  topic?: string
   data?: { id?: string | number }
+  resource?: string | number
   action?: string
   user_id?: number | string
 }
@@ -45,7 +47,9 @@ async function handleWebhook(request: Request): Promise<Response> {
     body
   })
 
-  const dataId = body.data?.id ? String(body.data.id) : null
+  const url = new URL(request.url)
+  const dataId = url.searchParams.get('id')
+    || (body.data?.id ? String(body.data.id) : null)
 
   console.log('[webhook] validating signature', {
     dataId,
@@ -84,14 +88,15 @@ async function handleWebhook(request: Request): Promise<Response> {
     })
   }
 
-  if (body.type !== 'payment' || !body.data?.id) {
+  const isPaymentEvent = body.type === 'payment' || body.topic === 'payment'
+  if (!isPaymentEvent || !dataId) {
     return new Response(JSON.stringify({ ok: true, ignored: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
-  const externalId = String(body.data.id)
+  const externalId = dataId
 
   const { error: idempotencyError } = await getSupabaseAdmin()
     .from('webhook_events')
