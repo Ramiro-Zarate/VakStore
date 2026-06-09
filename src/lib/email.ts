@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import * as Sentry from '@sentry/astro'
 
 const apiKey = import.meta.env.RESEND_API_KEY
 const fromEmail = import.meta.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
@@ -88,6 +89,18 @@ function buildOrderEmail(data: OrderEmailData): string {
 }
 
 export async function sendOrderConfirmationEmail(data: OrderEmailData): Promise<void> {
+  if (!data.customerEmail || !data.customerEmail.includes('@')) {
+    console.warn('[email] skipping confirmation, invalid email', {
+      orderId: data.orderId,
+      email: data.customerEmail
+    })
+    Sentry.captureMessage('Skipped order confirmation email: invalid recipient', {
+      level: 'warning',
+      extra: { orderId: data.orderId, email: data.customerEmail, type: 'confirmation' }
+    })
+    return
+  }
+
   if (!resend) {
     console.log('[email] Resend not configured, would send:', {
       to: data.customerEmail,
@@ -130,6 +143,18 @@ function buildOrderCancelledEmail(data: OrderCancelledEmailData): string {
 }
 
 export async function sendOrderCancelledEmail(data: OrderCancelledEmailData): Promise<void> {
+  if (!data.customerEmail || !data.customerEmail.includes('@')) {
+    console.warn('[email] skipping cancellation, invalid email', {
+      orderId: data.orderId,
+      email: data.customerEmail
+    })
+    Sentry.captureMessage('Skipped order cancellation email: invalid recipient', {
+      level: 'warning',
+      extra: { orderId: data.orderId, email: data.customerEmail, type: 'cancellation' }
+    })
+    return
+  }
+
   if (!resend) {
     console.log('[email] Resend not configured, would send cancellation:', {
       to: data.customerEmail,

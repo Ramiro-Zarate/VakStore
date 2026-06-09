@@ -205,6 +205,23 @@ async function handleWebhook(request: Request): Promise<Response> {
     })
   }
 
+  if (!/^\d+$/.test(dataId)) {
+    console.warn('[webhook] invalid dataId format, ignoring', {
+      dataId,
+      dataIdSource,
+      apiVersion,
+      action: body.action
+    })
+    Sentry.captureMessage('MP webhook with invalid dataId', {
+      level: 'warning',
+      extra: { dataId, dataIdSource, apiVersion, action: body.action }
+    })
+    return new Response(JSON.stringify({ ok: true, ignored: true, reason: 'invalid_data_id' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
   const externalId = dataId
 
   const { error: idempotencyError } = await getSupabaseAdmin()

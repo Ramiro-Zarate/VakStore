@@ -215,9 +215,9 @@ MP redirige a back_urls.success → /pedido/[orderId]
 Diagnóstico completo en `/audit/post-compra-2026-06-09.md` (en este mismo repo). Resumen priorizado:
 
 #### 🔴 Alta prioridad (afectan directamente al cliente)
-- [ ] **1.4** — Validar `paymentId` antes de `refundPayment()` en mock mode (string no numérico causa error en MP SDK)
-- [ ] **1.5** — Validar `customerEmail` antes de `sendOrderConfirmationEmail` (string vacío → Resend falla silenciosamente)
-- [ ] **2.3** — Validar `dataId` con regex `/^\d+$/` antes de `payment.get()` (webhooks de prueba de MP con id `"0"` o vacío → 500)
+- [x] **1.5** — Validar `customerEmail` antes de `sendOrderConfirmationEmail` y `sendOrderCancelledEmail` (string vacío → Resend falla silenciosamente). Aplicado en `src/lib/email.ts:90-117` y `:145-172`.
+- [x] **2.3** — Validar `dataId` con regex `/^\d+$/` antes de `payment.get()` (webhooks de prueba de MP con id `"0"` o vacío → 500). Aplicado en `src/pages/api/webhooks/mercadopago.ts:208-220`.
+- [ ] **1.4** — *Descartado.* El bug solo afectaba mock mode (string `MOCK-` rompe MP SDK), no producción real. En prod MP siempre envía IDs numéricos.
 
 #### 🟡 Media prioridad (afectan a producción con volumen)
 - [ ] **2.1** — Sanitizar `body` con `JSON.parse(JSON.stringify(body))` antes de insertar en `webhook_events.payload` (evita 500 por valores no-serializables)
@@ -231,7 +231,7 @@ Diagnóstico completo en `/audit/post-compra-2026-06-09.md` (en este mismo repo)
 - [ ] **3.3** — Check `rpcData == null || rpcData === 0` en `decrement_stock` (evita interpretar `null` como éxito)
 - [ ] **3.4** — Regenerar tipos con `supabase gen types typescript` (resuelve el bug de `astro check` con SDK 2.106+)
 
-**Orden de ejecución sugerido:** 1.4+1.5+2.3 (commit batch cliente-facing) → 2.1+2.5+1.1 (commit batch producción) → 2.4+3.1+3.3 (commit batch tipos) → 3.2+3.4 (commit batch infra).
+**Orden de ejecución sugerido:** ~~1.4+1.5+2.3~~ (1.5 y 2.3 aplicados, 1.4 descartado) → 2.1+2.5+1.1 (commit batch producción) → 2.4+3.1+3.3 (commit batch tipos) → 3.2+3.4 (commit batch infra).
 
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization
