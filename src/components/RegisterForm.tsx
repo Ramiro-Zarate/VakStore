@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useAuth } from './useAuth'
+import { useAuth } from '../hooks/useAuth'
 import { Field, Input, PasswordInput, Icon } from './Primitives'
 import styles from './RegisterForm.module.css'
 

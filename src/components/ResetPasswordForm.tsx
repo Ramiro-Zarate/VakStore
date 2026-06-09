@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from './useAuth'
+import { useAuth } from '../hooks/useAuth'
 import { Field, Input, Icon } from './Primitives'
 import styles from './ResetPasswordForm.module.css'
 

@@ -1,4 +1,4 @@
-import { useAuth } from './useAuth'
+import { useAuth } from '../hooks/useAuth'
 import UserMenu from './UserMenu'
 import styles from './AuthNav.module.css'
 

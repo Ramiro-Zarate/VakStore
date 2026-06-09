@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from './useAuth'
+import { useAuth } from '../hooks/useAuth'
 import { Field, Input, PasswordInput, Icon } from './Primitives'
 import styles from './LoginForm.module.css'
 
