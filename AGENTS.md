@@ -203,11 +203,35 @@ MP redirige a back_urls.success → /pedido/[orderId]
 > 3. **Upstash + Sentry con keys reales** — independiente de MP.
 > 4. **MP onboarding 80%+ y sacar mock mode** — depende de soporte externo de MP. Cuando esto pase, rotar `MP_ACCESS_TOKEN` a producción y setear `MP_MOCK_MODE=false`.
 - [x] Refund automático si oversell (vía `PaymentRefund.total({ payment_id })` + email cancelación + Sentry)
+- [x] **Idempotencia funcional en `processApprovedPayment`**: early-return si la orden ya está en estado terminal (`paid`/`delivered`). Previene doble decrement de stock cuando MP re-envía webhooks `approved` con `dataId` distinto.
 - [ ] Tests Playwright del flow completo
 - [ ] Configurar cuentas de Upstash y Sentry con keys reales
 - [ ] Completar onboarding de MP al 80%+ y sacar mock mode
 
 **Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
+
+### 🐛 Bugs pendientes (audit post-compra 2026-06-09)
+
+Diagnóstico completo en `/audit/post-compra-2026-06-09.md` (en este mismo repo). Resumen priorizado:
+
+#### 🔴 Alta prioridad (afectan directamente al cliente)
+- [ ] **1.4** — Validar `paymentId` antes de `refundPayment()` en mock mode (string no numérico causa error en MP SDK)
+- [ ] **1.5** — Validar `customerEmail` antes de `sendOrderConfirmationEmail` (string vacío → Resend falla silenciosamente)
+- [ ] **2.3** — Validar `dataId` con regex `/^\d+$/` antes de `payment.get()` (webhooks de prueba de MP con id `"0"` o vacío → 500)
+
+#### 🟡 Media prioridad (afectan a producción con volumen)
+- [ ] **2.1** — Sanitizar `body` con `JSON.parse(JSON.stringify(body))` antes de insertar en `webhook_events.payload` (evita 500 por valores no-serializables)
+- [ ] **1.1** — Loggear `paymentId` previo al refund para detectar reintentos con `dataId` distinto
+- [ ] **2.5** — Whitelist de `payment_status` válidos en `markOrderCancelled` (mapear status de MP a enum controlada)
+
+#### 🟢 Baja prioridad (mantenibilidad / deuda técnica)
+- [ ] **2.4** — Sentry alert explícito cuando `result.refundStatus === 'failed'`
+- [ ] **3.1** — Cambiar `Order.payment_status` de `string | null` a union literal con status válidos
+- [ ] **3.2** — `supabase db pull` para versionar schema SQL en repo
+- [ ] **3.3** — Check `rpcData == null || rpcData === 0` en `decrement_stock` (evita interpretar `null` como éxito)
+- [ ] **3.4** — Regenerar tipos con `supabase gen types typescript` (resuelve el bug de `astro check` con SDK 2.106+)
+
+**Orden de ejecución sugerido:** 1.4+1.5+2.3 (commit batch cliente-facing) → 2.1+2.5+1.1 (commit batch producción) → 2.4+3.1+3.3 (commit batch tipos) → 3.2+3.4 (commit batch infra).
 
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization

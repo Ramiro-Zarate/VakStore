@@ -53,8 +53,14 @@ export async function processApprovedPayment(
     .eq('id', orderId)
     .maybeSingle()
 
-  if (currentOrder && (currentOrder as { status: string }).status === 'cancelled') {
-    return { success: false, oversell: false, refundStatus: 'skipped' }
+  if (currentOrder) {
+    const status = (currentOrder as { status: string }).status
+    if (status === 'cancelled') {
+      return { success: false, oversell: false, refundStatus: 'skipped' }
+    }
+    if (status === 'paid' || status === 'delivered') {
+      return { success: true, oversell: false }
+    }
   }
 
   const { data: orderItemsRaw } = await supabase
