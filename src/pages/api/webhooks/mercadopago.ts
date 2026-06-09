@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro'
 import * as Sentry from '@sentry/astro'
-import { createHmac, timingSafeEqual } from 'node:crypto'
-import { Payment } from 'mercadopago'
+import { Payment, WebhookSignatureValidator, InvalidWebhookSignatureError } from 'mercadopago'
 import { getMpClient } from '../../../lib/mp'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
 import { processApprovedPayment, markOrderCancelled } from '../../../lib/orderProcessing'
@@ -29,65 +28,44 @@ type SignatureResult =
 function verifyMpSignature({
   xSignature,
   xRequestId,
-  dataIdCandidates,
+  dataId,
   secret,
 }: {
   xSignature: string | null
   xRequestId: string | null
-  dataIdCandidates: string[]
+  dataId: string | null
   secret: string
 }): SignatureResult {
-  if (!xSignature || !xRequestId) {
+  if (!xSignature || !xRequestId || !dataId) {
     return { ok: false, reason: 'missing_headers' }
   }
-  if (dataIdCandidates.length === 0) {
-    return { ok: false, reason: 'missing_data_id' }
-  }
 
-  const parts = xSignature.split(',').map((p) => p.trim())
-  let ts: string | null = null
-  let hash: string | null = null
-
-  for (const part of parts) {
-    const [key, value] = part.split('=')
-    if (!key || !value) continue
-    const trimmedKey = key.trim()
-    const trimmedValue = value.trim()
-    if (trimmedKey === 'ts') ts = trimmedValue
-    else if (trimmedKey === 'v1') hash = trimmedValue
-  }
-
-  if (!ts || !hash) return { ok: false, reason: 'malformed_signature' }
-
-  const tsNum = Number(ts)
-  if (!Number.isFinite(tsNum)) return { ok: false, reason: 'invalid_ts' }
-
-  const drift = Math.abs(Date.now() / 1000 - tsNum)
-  if (drift > 300) return { ok: false, reason: 'expired' }
-
-  const templateVariants: Array<(id: string, ts: string, reqId: string) => string> = [
-    (id, ts, reqId) => `id:${id};request-id:${reqId};ts:${ts};`,
-    (id, ts, reqId) => `id:${id};request-id:${reqId};ts:${ts};v1:`,
-    (id, ts, reqId) => `id:${id},request-id:${reqId},ts:${ts},`,
-    (id, ts, reqId) => `id:${id};ts:${ts};`,
-    (id, ts, reqId) => `ts:${ts};request-id:${reqId};id:${id};`,
-  ]
-
-  for (const candidate of dataIdCandidates) {
-    if (!candidate) continue
-    for (const templateFn of templateVariants) {
-      const manifest = templateFn(candidate, ts, xRequestId)
-      const expected = createHmac('sha256', secret).update(manifest).digest('hex')
-
-      const a = Buffer.from(expected, 'hex')
-      const b = Buffer.from(hash, 'hex')
-      if (a.length === b.length && timingSafeEqual(a, b)) {
-        return { ok: true, matchedSource: candidate, matchedTemplate: manifest }
-      }
+  try {
+    WebhookSignatureValidator.validate({
+      xSignature,
+      xRequestId,
+      dataId,
+      secret,
+      toleranceSeconds: 300
+    })
+    return { ok: true, matchedSource: dataId, matchedTemplate: 'sdk_official' }
+  } catch (err) {
+    if (err instanceof InvalidWebhookSignatureError) {
+      console.error('[webhook] sdk signature rejected', {
+        reason: err.reason,
+        xRequestId,
+        dataId,
+        ts: err.timestamp,
+        xSignatureLength: xSignature.length
+      })
+      Sentry.captureMessage('MP webhook signature mismatch', {
+        level: 'error',
+        extra: { reason: err.reason, dataId, ts: err.timestamp }
+      })
+      return { ok: false, reason: err.reason }
     }
+    throw err
   }
-
-  return { ok: false, reason: 'mismatch' }
 }
 
 async function handleWebhook(request: Request): Promise<Response> {
@@ -153,9 +131,7 @@ async function handleWebhook(request: Request): Promise<Response> {
   const sigResult = verifyMpSignature({
     xSignature: request.headers.get('x-signature'),
     xRequestId: request.headers.get('x-request-id'),
-    dataIdCandidates: [queryId, queryDataId, bodyDataId, bodyResource].filter(
-      (c): c is string => Boolean(c)
-    ),
+    dataId,
     secret: webhookSecret
   })
 
