@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/astro'
 import { getSupabaseAdmin } from './supabaseAdmin'
 import { sendOrderConfirmationEmail, sendOrderCancelledEmail } from './email'
 import { refundPayment } from './mp'
+import type { OrdersUpdate } from './db'
 
 interface OrderItemForEmail {
   product_variant_id: string
@@ -90,13 +91,14 @@ export async function processApprovedPayment(
   }
 
   if (oversell) {
+    const cancelPayload: OrdersUpdate = {
+      status: 'cancelled',
+      payment_status: 'rejected',
+      payment_intent_id: paymentId
+    }
     await (supabase
       .from('orders')
-      .update({
-        status: 'cancelled',
-        payment_status: 'rejected',
-        payment_intent_id: paymentId
-      })
+      .update(cancelPayload as never)
       .eq('id', orderId) as any)
 
     let refundStatus: RefundStatus = 'skipped'
@@ -135,13 +137,14 @@ export async function processApprovedPayment(
     return { success: false, oversell: true, refundStatus }
   }
 
+  const paidPayload: OrdersUpdate = {
+    status: 'paid',
+    payment_status: 'approved',
+    payment_intent_id: paymentId
+  }
   await (supabase
     .from('orders')
-    .update({
-      status: 'paid',
-      payment_status: 'approved',
-      payment_intent_id: paymentId
-    })
+    .update(paidPayload as never)
     .eq('id', orderId) as any)
 
   const { data: orderRaw } = await supabase
@@ -190,12 +193,13 @@ export async function markOrderCancelled(
   paymentId: string,
   paymentStatus: string
 ): Promise<void> {
+  const payload: OrdersUpdate = {
+    status: 'cancelled',
+    payment_status: paymentStatus,
+    payment_intent_id: paymentId
+  }
   await (getSupabaseAdmin()
     .from('orders')
-    .update({
-      status: 'cancelled',
-      payment_status: paymentStatus,
-      payment_intent_id: paymentId
-    })
+    .update(payload as never)
     .eq('id', orderId) as any)
 }

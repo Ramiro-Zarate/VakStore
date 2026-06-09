@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '../../lib/supabaseAdmin'
 import { checkoutSchema } from '../../lib/checkoutSchema'
 import { processApprovedPayment } from '../../lib/orderProcessing'
 import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
+import type { OrdersUpdate } from '../../lib/db'
 
 export const prerender = false
 
@@ -221,9 +222,10 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (err) {
     console.error('[checkout] MP preference create failed', err)
     Sentry.captureException(err, { extra: { stage: 'preference_create', orderId, customerEmail: customer.email } })
+    const cancelPayload: OrdersUpdate = { status: 'cancelled', payment_status: 'rejected' }
     const { error: cancelError } = await getSupabaseAdmin()
       .from('orders')
-      .update({ status: 'cancelled', payment_status: 'rejected' } as never)
+      .update(cancelPayload as never)
       .eq('id', orderId)
     if (cancelError) console.error('[checkout] order cancel failed', cancelError)
     return new Response(
