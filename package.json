@@ -14,15 +14,15 @@
     "create-sample": "npx tsx scripts/create-sample.ts"
   },
   "dependencies": {
-    "@astrojs/react": "^5.0.5",
-    "@astrojs/vercel": "^10.0.7",
+    "@astrojs/react": "^5.0.7",
+    "@astrojs/vercel": "^10.0.8",
     "@sentry/astro": "^10.56.0",
     "@supabase/supabase-js": "^2.106.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
-    "astro": "^6.3.7",
+    "astro": "^6.4.5",
     "dotenv": "^17.4.2",
     "mercadopago": "^3.1.0",
     "react": "^19.2.6",

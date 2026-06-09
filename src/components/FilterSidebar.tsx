@@ -41,6 +41,15 @@ const LEAGUES = [
   { value: 'Liga Argentina', label: 'Liga Argentina' }
 ]
 
+const PRICE_KEYS = ['minPrice', 'maxPrice'] as const
+
+function clampPrice(value: string | undefined): string | undefined {
+  if (value === undefined || value === '') return undefined
+  const n = Number(value)
+  if (Number.isNaN(n)) return undefined
+  return String(Math.max(0, n))
+}
+
 function getFiltersFromURL(): Filters {
   if (typeof window === 'undefined') return {}
   const params = new URLSearchParams(window.location.search)
@@ -48,8 +57,8 @@ function getFiltersFromURL(): Filters {
     category: params.get('category') || undefined,
     size: params.get('size') || undefined,
     league: params.get('league') || undefined,
-    minPrice: params.get('minPrice') || undefined,
-    maxPrice: params.get('maxPrice') || undefined
+    minPrice: clampPrice(params.get('minPrice') || undefined),
+    maxPrice: clampPrice(params.get('maxPrice') || undefined)
   }
 }
 
@@ -102,9 +111,19 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
   }
 
   const handleChange = (key: keyof Filters, value: string) => {
-    const newFilters = { ...filters, [key]: value || undefined }
+    const sanitized = (PRICE_KEYS as readonly string[]).includes(key)
+      ? clampPrice(value)
+      : value
+    const newFilters = { ...filters, [key]: sanitized || undefined }
     updateURL(newFilters)
   }
+
+  const minNum = filters.minPrice !== undefined ? Number(filters.minPrice) : null
+  const maxNum = filters.maxPrice !== undefined ? Number(filters.maxPrice) : null
+  const priceError =
+    minNum !== null && maxNum !== null && !Number.isNaN(minNum) && !Number.isNaN(maxNum) && minNum > maxNum
+      ? 'El precio mínimo no puede ser mayor al máximo.'
+      : null
 
   const handleClear = () => {
     updateURL({})
@@ -213,12 +232,19 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
           />
         </Field>
 
-        <Field id={`${idMin}-group`} label="Precio" optional>
+        <Field
+          id={`${idMin}-group`}
+          label="Precio"
+          optional
+          error={priceError}
+        >
           <div className={styles.priceRow}>
             <Input
               id={idMin}
               type="number"
               inputMode="numeric"
+              min={0}
+              step={1}
               placeholder="Mín."
               value={filters.minPrice ?? ''}
               onChange={e => handleChange('minPrice', e.target.value)}
@@ -228,6 +254,8 @@ export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProp
               id={idMax}
               type="number"
               inputMode="numeric"
+              min={0}
+              step={1}
               placeholder="Máx."
               value={filters.maxPrice ?? ''}
               onChange={e => handleChange('maxPrice', e.target.value)}
