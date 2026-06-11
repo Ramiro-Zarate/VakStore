@@ -1,29 +1,125 @@
 ---
+export const prerender = false
+
 import Layout from '../layouts/Layout.astro'
+import ProfileForm from '../components/ProfileForm.tsx'
+import { getSupabaseServer } from '../lib/supabaseServer'
+import type { Profile } from '../lib/types'
+
+const { supabase } = getSupabaseServer(Astro)
+
+const { data: userData } = await supabase.auth.getUser()
+const user = userData?.user
+
+if (!user) {
+  return Astro.redirect('/login?redirect=/cuenta')
+}
+
+const { data: profile } = await supabase
+  .from('profiles')
+  .select('id, email, full_name, phone, address, city, postal_code, created_at, updated_at')
+  .eq('id', user.id)
+  .maybeSingle()
+
+const profileTyped = (profile ?? null) as Profile | null
+const email = profileTyped?.email ?? user.email ?? ''
 ---
 
 <Layout title="Mi cuenta | Vak Store">
-  <div class="account-page">
-    <h1>Mi cuenta</h1>
-    <p>Bienvenido a tu cuenta</p>
-  </div>
+  <main class="cuenta">
+    <div class="cuenta-inner">
+      <header class="cuenta-header">
+        <p class="cuenta-eyebrow">— Mi cuenta</p>
+        <h1 class="cuenta-title">Tus datos</h1>
+        <p class="cuenta-subtitle">Editá tu información personal y de envío.</p>
+      </header>
+
+      <section class="cuenta-card" aria-labelledby="datos-personales">
+        <h2 id="datos-personales" class="cuenta-section-title">Datos personales</h2>
+        <ProfileForm client:load initialProfile={profileTyped} email={email} />
+      </section>
+    </div>
+  </main>
 </Layout>
 
 <style>
-  .account-page {
-    max-width: 1200px;
+  .cuenta {
+    background-color: var(--color-bg-base);
+    min-height: 100dvh;
+    padding-block: var(--space-9) var(--space-12);
+  }
+
+  .cuenta-inner {
+    max-width: 720px;
     margin: 0 auto;
-    padding: 2rem;
+    padding-inline: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-7);
   }
 
-  h1 {
-    font-family: var(--font-titles);
-    font-size: var(--font-size-3xl);
-    color: var(--text-primary);
-    margin: 0 0 1rem;
+  .cuenta-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
-  p {
-    color: var(--text-muted);
+  .cuenta-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--color-accent);
+    margin: 0;
+  }
+
+  .cuenta-title {
+    font-family: var(--font-display);
+    font-size: var(--text-4xl);
+    font-weight: var(--weight-bold);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .cuenta-subtitle {
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .cuenta-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    padding: var(--space-7);
+    background-color: var(--color-bg-elev-1);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+  }
+
+  .cuenta-section-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--color-text-primary);
+    margin: 0;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  @media (max-width: 640px) {
+    .cuenta {
+      padding-block: var(--space-6) var(--space-9);
+    }
+    .cuenta-title {
+      font-size: var(--text-3xl);
+    }
+    .cuenta-card {
+      padding: var(--space-5);
+    }
   }
 </style>

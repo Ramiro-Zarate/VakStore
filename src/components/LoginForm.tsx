@@ -37,7 +37,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         setError(error.message || `Error de autenticación (${error.status ?? 'desconocido'})`)
       } else {
         onSuccess?.()
-        window.location.href = '/'
+        const params = new URLSearchParams(window.location.search)
+        const redirect = params.get('redirect') || '/'
+        window.location.href = redirect
       }
     } catch (err) {
       console.error('[Login] signIn threw:', err)
