@@ -11,7 +11,7 @@ tomadas, convenciones y roadmap.
 |---|---|
 | Framework | Astro 6 (SSR via `@astrojs/vercel`) |
 | UI islands | React 19 (`@astrojs/react`) |
-| Auth + DB | Supabase (`@supabase/supabase-js`) |
+| Auth + DB | Supabase (`@supabase/ssr` para client/server con cookies, `@supabase/supabase-js` solo para service_role) |
 | Pasarela de pagos | **Mercado Pago** (`mercadopago` SDK) |
 | Validación | Zod |
 | Email transaccional | **Resend** (free tier) |
@@ -198,21 +198,40 @@ MP redirige a back_urls.success → /pedido/[orderId]
 
 ### ⏳ Fase 3 — Robustez (pendiente)
 > **Orden de ejecución sugerido** (por dependencia):
-> 1. **Tests Playwright E2E** — habilita validar los demás cambios sin romper prod. Asume Fase 2.5 mergeada.
+> 0. **Fix webhook `topic=merchant_order`** — bloqueante real de producción. Asume mock mode como fallback.
+> 1. **Tests Playwright E2E** — habilita validar los demás cambios sin romper prod. Asume Fase 2.5 + fix merchant_order mergeada.
 > 2. **Refund automático por oversell** — depende de los tests para validar el path de error.
 > 3. **Upstash + Sentry con keys reales** — independiente de MP.
 > 4. **MP onboarding 80%+ y sacar mock mode** — depende de soporte externo de MP. Cuando esto pase, rotar `MP_ACCESS_TOKEN` a producción y setear `MP_MOCK_MODE=false`.
 - [x] Refund automático si oversell (vía `PaymentRefund.total({ payment_id })` + email cancelación + Sentry)
 - [x] **Idempotencia funcional en `processApprovedPayment`**: early-return si la orden ya está en estado terminal (`paid`/`delivered`). Previene doble decrement de stock cuando MP re-envía webhooks `approved` con `dataId` distinto.
+- [ ] **Fix webhook `topic=merchant_order`** (bloqueante de producción) — ver plan en `audit/post-compra-2026-06-11.md` sección 3
 - [ ] Tests Playwright del flow completo
 - [ ] Configurar cuentas de Upstash y Sentry con keys reales
 - [ ] Completar onboarding de MP al 80%+ y sacar mock mode
 
 **Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
 
-### 🐛 Bugs pendientes (audit post-compra 2026-06-09)
+### 🐛 Bugs pendientes (audit post-compra 2026-06-11)
 
-Diagnóstico completo en `/audit/post-compra-2026-06-09.md` (en este mismo repo). Resumen priorizado:
+> Diagnóstico histórico en `audit/post-compra-2026-06-11.md` (en este mismo repo).
+> Resumen priorizado:
+
+#### 🔴 Crítico — Webhook `topic=merchant_order` no soportado (2026-06-11)
+
+**Síntoma** (Vercel log 2026-06-11 15:24:25):
+- POST con `body.topic='merchant_order'`, `body.resource='https://api.mercadolibre.com/merchant_orders/41734750025'`
+- `dataId='41734750025'` se extrae OK del query `?id=`
+- `WebhookSignatureValidator.validate()` rechaza con `SignatureMismatch`
+- Respondemos 401 → MP reintenta → loop de rechazos
+
+**Causa raíz** (doble):
+1. La SDK `WebhookSignatureValidator` de MP está calibrada para `topic=payment` (donde el `id` del manifest = `payment_id`). Con `merchant_order` el manifest se construye distinto y la SDK devuelve `SignatureMismatch`.
+2. Downstream rompe: `payment.get({ id: externalId })` en `src/pages/api/webhooks/mercadopago.ts:231` recibe un `merchant_order_id` y devuelve 404 (merchant_order_id ≠ payment_id).
+
+**Por qué no se puede "elegir" qué envía MP**: en la cuenta actual (~50% onboarding) el panel solo permite registrar webhooks de tipo `merchant_order`. No hay opción v3 pura de `payment` desde el panel. Reintentado en sesión previa sin éxito.
+
+**Fix planeado (NO implementado)**: ver `audit/post-compra-2026-06-11.md` sección "Plan de fix merchant_order". Implementación diferida — `MP_MOCK_MODE` funciona en paralelo como path de validación.
 
 #### 🔴 Alta prioridad (afectan directamente al cliente)
 - [x] **1.5** — Validar `customerEmail` antes de `sendOrderConfirmationEmail` y `sendOrderCancelledEmail` (string vacío → Resend falla silenciosamente). Aplicado en `src/lib/email.ts:90-117` y `:145-172`.
@@ -233,6 +252,26 @@ Diagnóstico completo en `/audit/post-compra-2026-06-09.md` (en este mismo repo)
 
 **Orden de ejecución sugerido:** ~~1.4+1.5+2.3~~ (1.5 y 2.3 aplicados, 1.4 descartado) → 2.1+2.5+1.1 (commit batch producción) → 2.4+3.1+3.3 (commit batch tipos) → 3.2+3.4 (commit batch infra).
 
+### 🛠 Defensive checks (catches no catalogados, sesión 2026-06-11)
+
+Detectados en revisión de código durante sesión de debug MP. No estaban en el
+audit doc anterior ni en la lista de bugs. Son ingeniería defensiva que se fue
+sumando sin catalogar — vale la pena tenerlos mapeados para no perder el
+contexto si alguien toca esos archivos.
+
+| # | Ubicación | Qué hace | Por qué importa |
+|---|---|---|---|
+| **C1** | `src/pages/api/checkout.ts:161-172` | Si falla `INSERT order_items`, hace `DELETE order` (compensación) | Evita orders huérfanas sin items. |
+| **C2** | `src/pages/api/checkout.ts:225-234` | Si falla `Preference.create()` en MP, marca la order como `cancelled`/`rejected` | Evita que quede una order `pending` para siempre porque MP nunca la procesó. |
+| **C3** | `src/lib/mp.ts:21-30` | `refundPayment` retorna `{ok, error}` union en vez de tirar excepción | El caller decide qué hacer (email, Sentry, etc.) sin un `try/catch` que se le escape. |
+| **C4** | `src/lib/orderProcessing.ts:50-64` | Early-return si la order ya está en `paid`/`delivered`/`cancelled` | Idempotencia funcional: si MP reenvía el webhook, no decrementa stock dos veces ni manda dos emails. |
+| **C5** | `src/pages/api/orders/[id].ts:11-19` | `safeEqual` con `timingSafeEqual` + dummy call cuando los buffers difieren en length | Anti-timing-attack en la verificación de email. El `timingSafeEqual(ab, ab)` mantiene tiempo constante si los emails tienen largo distinto. |
+| **C6** | `src/pages/api/orders/[id].ts:8-9` | Regex `UUID_REGEX` y `EMAIL_REGEX` antes de cualquier query | Evita queries inútiles + log noise. |
+| **C7** | `src/pages/api/products/index.ts:59,81` y `[id].ts:26` | `.eq('is_active', true)` en TODA query pública de productos | Guard de seguridad: previene leak de productos desactivados. |
+| **C8** | `src/pages/api/webhooks/mercadopago.ts:243-252` | Check `payment.external_reference` no-null antes de procesar | Si MP por algún motivo no manda `external_reference`, no rompe con null pointer. |
+| **C9** | `src/stores/CartStore.ts:50-56, 65-69` | try/catch silencioso en `localStorage.setItem` | Si el user está en modo incógnito o excede quota, el carrito no rompe la app. |
+| **C10** | `src/stores/AuthStore.ts:42-45` | catch en `supabase.auth.getSession()` | Si falla el handshake inicial, el listener no queda colgado. |
+
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization
 - [ ] Búsqueda full-text
@@ -251,6 +290,7 @@ Diagnóstico completo en `/audit/post-compra-2026-06-09.md` (en este mismo repo)
 - **CSS Modules** para componentes React. CSS global solo en `src/pages/styles/global.css`.
 - **Stores:** singletons con `subscribe` + `getSnapshot` para usar con `useSyncExternalStore` si migramos.
 - **Supabase:** SIEMPRE filtrar `is_active = true` en queries públicas. Validar stock en server, nunca confiar en el cliente.
+- **Supabase auth (SSR-safe):** el cliente anon SIEMPRE debe ser `createBrowserClient` de `@supabase/ssr` (nunca `createClient` plano de `@supabase/supabase-js` para auth). Este último guarda el JWT en `localStorage` y rompe SSR de páginas con `prerender = false` que lean la sesión (ej. `/cuenta` siempre redirige a `/login` aunque el user esté logueado). Para server-side con auth del user, `createServerClient` con `cookies.getAll`/`setAll` cableados a `ctx.request.headers` y `ctx.cookies` (ver `src/lib/supabaseServer.ts`). Para bypass de RLS, `getSupabaseAdmin()` (service_role).
 - **Secrets:** nunca loggear keys, tokens o passwords. Sanitizar errores antes de devolver al cliente.
 
 ---
@@ -285,13 +325,14 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 ## 10. Estado actual de Mercado Pago
 
 - ✅ Código completo: SDK v3, preference, webhook con `WebhookSignatureValidator` oficial + idempotencia
-- ✅ Webhook configurado en panel de MP (URL de producción)
+- ⚠️ Webhook configurado en panel de MP — envía `topic=merchant_order` que NO manejamos en código (ver bug crítico arriba)
 - ✅ Refund automático por oversell implementado (`PaymentRefund.total()`)
 - ✅ Sentry captura de errores en webhook, checkout y orderProcessing
 - ✅ Estructura final lista (Fase 2.5 + Fase 3 refund): typo fixed, webhook validado, refund cableado
 - ⚠️ Cuenta de vendedor MP al ~50% de integración — completar "verificación de cobro" + datos del titular
 - ⚠️ Test users se crean sin email (bug de MP en esta cuenta)
 - 🛠 `MP_MOCK_MODE` no está en Vercel → corre flow real contra sandbox
+- 🛑 **`MP_MOCK_MODE` es el único path de pago real funcionando** hasta implementar el fix de merchant_order. Sacar mock antes de campaña pública.
 - 📞 Pendiente: validar flow E2E con tarjeta sandbox APRO + completar onboarding al 80%+ para sacar mock definitivamente
 
 ---
