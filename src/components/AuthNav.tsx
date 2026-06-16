@@ -1,9 +1,19 @@
+import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import UserMenu from './UserMenu'
 import styles from './AuthNav.module.css'
 
 export default function AuthNav() {
   const { user, initialized } = useAuth()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return <div className={styles.guestNav} aria-hidden="true" />
+  }
 
   if (initialized && user) {
     return <UserMenu />

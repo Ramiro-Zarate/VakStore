@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useSyncExternalStore } from 'react'
 import {
   type CartItem,
-  getCartItems,
   getCartCount,
   getCartTotal,
-  isDrawerOpen,
   addToCart,
   removeFromCart,
   updateQuantity,
@@ -12,7 +10,8 @@ import {
   openDrawer,
   closeDrawer,
   subscribe,
-  initCartStore
+  getSnapshot,
+  getServerSnapshot
 } from '../stores/CartStore'
 
 interface CartSnapshot {
@@ -30,32 +29,13 @@ export function useCartStore(): CartSnapshot & {
   openDrawer: typeof openDrawer
   closeDrawer: typeof closeDrawer
 } {
-  const [snapshot, setSnapshot] = useState<CartSnapshot>(() => ({
-    items: getCartItems(),
-    isDrawerOpen: isDrawerOpen(),
-    getCartCount,
-    getCartTotal
-  }))
-
-  useEffect(() => {
-    // Initialize store from localStorage
-    initCartStore()
-
-    // Subscribe to store changes
-    const unsubscribe = subscribe(() => {
-      setSnapshot({
-        items: getCartItems(),
-        isDrawerOpen: isDrawerOpen(),
-        getCartCount,
-        getCartTotal
-      })
-    })
-
-    return unsubscribe
-  }, [])
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   return {
-    ...snapshot,
+    items: snapshot.items,
+    isDrawerOpen: snapshot.isDrawerOpen,
+    getCartCount,
+    getCartTotal,
     addToCart,
     removeFromCart,
     updateQuantity,

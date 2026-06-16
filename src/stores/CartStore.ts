@@ -19,7 +19,6 @@ type Listener = () => void
 
 const STORAGE_KEY = 'vak-cart'
 
-// Singleton state (module-level, survives React island re-renders)
 const state: CartState = {
   items: [],
   isDrawerOpen: false
@@ -27,7 +26,9 @@ const state: CartState = {
 
 const listeners = new Set<Listener>()
 
-// Load from localStorage
+let version = 0
+let cachedSnapshot: CartState | null = null
+
 function loadFromStorage(): void {
   if (typeof window === 'undefined') return
   try {
@@ -41,64 +42,35 @@ function loadFromStorage(): void {
   }
 }
 
-// Debounced save to localStorage
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-function saveToStorage(): void {
-  if (typeof window === 'undefined') return
-  if (saveTimer) clearTimeout(saveTimer)
-  const snapshot = JSON.stringify(state.items)
-  saveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, snapshot)
-    } catch {
-      // Ignore storage errors (quota, private mode, etc.)
-    }
-  }, 250)
-}
-
-function saveToStorageImmediate(): void {
-  if (typeof window === 'undefined') return
-  if (saveTimer) {
-    clearTimeout(saveTimer)
-    saveTimer = null
-  }
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items))
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-// Notify all listeners
-function notifyListeners(): void {
-  listeners.forEach(listener => listener())
-}
-
-// Get snapshot for hook
-function getSnapshot(): CartState {
-  return { ...state, items: [...state.items] }
-}
-
-// Initialize store (call once on app load)
-export function initCartStore(): void {
+if (typeof window !== 'undefined') {
   loadFromStorage()
 }
 
-// Public API
-export function getCartItems(): CartItem[] {
-  return [...state.items]
+function notifyListeners(): void {
+  version++
+  cachedSnapshot = null
+  listeners.forEach(listener => listener())
 }
 
-export function getCartCount(): number {
-  return state.items.reduce((sum, item) => sum + item.quantity, 0)
+function getSnapshot(): CartState {
+  if (cachedSnapshot) return cachedSnapshot
+  cachedSnapshot = {
+    items: [...state.items],
+    isDrawerOpen: state.isDrawerOpen
+  }
+  return cachedSnapshot
 }
 
-export function getCartTotal(): number {
-  return state.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+function getServerSnapshot(): CartState {
+  return { items: [], isDrawerOpen: false }
 }
 
-export function isDrawerOpen(): boolean {
-  return state.isDrawerOpen
+function saveToStorage(): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items))
+  } catch {
+  }
 }
 
 export function addToCart(item: Omit<CartItem, 'quantity'>, quantity: number): void {
@@ -137,7 +109,7 @@ export function updateQuantity(variantId: string, quantity: number): void {
 
 export function clearCart(): void {
   state.items = []
-  saveToStorageImmediate()
+  saveToStorage()
   notifyListeners()
 }
 
@@ -151,9 +123,17 @@ export function closeDrawer(): void {
   notifyListeners()
 }
 
+export function getCartCount(): number {
+  return state.items.reduce((sum, item) => sum + item.quantity, 0)
+}
+
+export function getCartTotal(): number {
+  return state.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+}
+
 export function subscribe(listener: Listener): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
 
-export { getSnapshot }
+export { getSnapshot, getServerSnapshot }

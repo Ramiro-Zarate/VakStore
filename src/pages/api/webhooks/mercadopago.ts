@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro'
 import * as Sentry from '@sentry/astro'
 import { Payment, WebhookSignatureValidator, InvalidWebhookSignatureError } from 'mercadopago'
-import { getMpClient } from '../../../lib/mp'
+import { getMpClient, getMerchantOrder } from '../../../lib/mp'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
 import { processApprovedPayment, markOrderCancelled } from '../../../lib/orderProcessing'
 
@@ -68,6 +68,137 @@ function verifyMpSignature({
   }
 }
 
+function isMerchantOrderEvent(body: MPWebhookBody): boolean {
+  return body.topic === 'merchant_order' || body.type === 'merchant_order'
+}
+
+async function insertWebhookEvent(
+  externalId: string,
+  body: MPWebhookBody,
+  apiVersion: 'v1' | 'v3'
+): Promise<{ alreadyProcessed: boolean } | { error: unknown }> {
+  const { error: idempotencyError } = await getSupabaseAdmin()
+    .from('webhook_events')
+    .insert({
+      provider: 'mercadopago',
+      external_id: externalId,
+      payload: body as unknown as Record<string, unknown>
+    } as any)
+
+  if (idempotencyError) {
+    if (idempotencyError.code === '23505') {
+      return { alreadyProcessed: true }
+    }
+    console.error('[webhook] idempotency insert failed', idempotencyError)
+    Sentry.captureException(idempotencyError, {
+      extra: { stage: 'idempotency_insert', externalId, apiVersion }
+    })
+    return { error: idempotencyError }
+  }
+
+  return { alreadyProcessed: false }
+}
+
+async function processSinglePayment(
+  paymentId: string,
+  apiVersion: 'v1' | 'v3',
+  source: 'payment' | 'merchant_order'
+): Promise<void> {
+  const paymentClient = new Payment(getMpClient())
+  let payment
+  try {
+    payment = await paymentClient.get({ id: paymentId })
+  } catch (err) {
+    console.error('[webhook] payment lookup failed', { paymentId, source, err })
+    Sentry.captureException(err, {
+      extra: { stage: 'payment_lookup', paymentId, source, apiVersion }
+    })
+    return
+  }
+
+  const orderId = payment.external_reference
+  if (!orderId) {
+    console.warn('[webhook] payment without external_reference', {
+      paymentId,
+      source,
+      apiVersion
+    })
+    return
+  }
+
+  const status = payment.status
+
+  if (status === 'approved') {
+    const result = await processApprovedPayment(orderId, paymentId)
+    if (result.oversell) {
+      console.error('[webhook] oversell detected', {
+        orderId,
+        paymentId,
+        source,
+        refundStatus: result.refundStatus
+      })
+    }
+  } else if (status === 'rejected' || status === 'cancelled') {
+    await markOrderCancelled(orderId, paymentId, status)
+  }
+}
+
+async function handleMerchantOrder(
+  dataId: string,
+  body: MPWebhookBody,
+  apiVersion: 'v1' | 'v3'
+): Promise<Response> {
+  console.warn('[webhook] merchant_order received, signature validation skipped (temporary)', {
+    dataId,
+    apiVersion
+  })
+
+  const idempotency = await insertWebhookEvent(dataId, body, apiVersion)
+  if ('error' in idempotency) {
+    return new Response(JSON.stringify({ error: 'Idempotency check failed' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+  if (idempotency.alreadyProcessed) {
+    return new Response(JSON.stringify({ ok: true, already_processed: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
+  let mo
+  try {
+    mo = await getMerchantOrder(dataId)
+  } catch (err) {
+    console.error('[webhook] merchant_order lookup failed', { dataId, err })
+    Sentry.captureException(err, {
+      extra: { stage: 'merchant_order_lookup', dataId, apiVersion }
+    })
+    return new Response(JSON.stringify({ error: 'Merchant order lookup failed' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
+  const payments = mo.payments ?? []
+  console.log('[webhook] merchant_order payments count', {
+    dataId,
+    count: payments.length,
+    apiVersion
+  })
+
+  for (const p of payments) {
+    if (!p.id) continue
+    await processSinglePayment(String(p.id), apiVersion, 'merchant_order')
+  }
+
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  })
+}
+
 async function handleWebhook(request: Request): Promise<Response> {
   const rawBody = await request.text()
 
@@ -117,6 +248,16 @@ async function handleWebhook(request: Request): Promise<Response> {
     : null
 
   const dataId = queryId || queryDataId || bodyDataId || bodyResource
+
+  if (isMerchantOrderEvent(body)) {
+    if (!dataId) {
+      return new Response(
+        JSON.stringify({ ok: true, ignored: true, reason: 'merchant_order_no_data_id' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+    return await handleMerchantOrder(dataId, body, apiVersion)
+  }
 
   console.log('[webhook] validating signature', {
     apiVersion,
@@ -198,69 +339,21 @@ async function handleWebhook(request: Request): Promise<Response> {
     })
   }
 
-  const externalId = dataId
-
-  const { error: idempotencyError } = await getSupabaseAdmin()
-    .from('webhook_events')
-    .insert({
-      provider: 'mercadopago',
-      external_id: externalId,
-      payload: body as unknown as Record<string, unknown>
-    } as any)
-
-  if (idempotencyError) {
-    if (idempotencyError.code === '23505') {
-      return new Response(JSON.stringify({ ok: true, already_processed: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-    }
-    console.error('[webhook] idempotency insert failed', idempotencyError)
-    Sentry.captureException(idempotencyError, {
-      extra: { stage: 'idempotency_insert', externalId, apiVersion }
-    })
+  const idempotency = await insertWebhookEvent(dataId, body, apiVersion)
+  if ('error' in idempotency) {
     return new Response(JSON.stringify({ error: 'Idempotency check failed' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
   }
-
-  const paymentClient = new Payment(getMpClient())
-  let payment
-  try {
-    payment = await paymentClient.get({ id: externalId })
-  } catch (err) {
-    console.error('[webhook] payment lookup failed', err)
-    Sentry.captureException(err, {
-      extra: { stage: 'payment_lookup', externalId, apiVersion }
-    })
-    return new Response(JSON.stringify({ error: 'Payment lookup failed' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' }
-    })
-  }
-
-  const externalReference = payment.external_reference
-  const status = payment.status
-
-  if (!externalReference) {
-    console.warn('[webhook] payment without external_reference', { id: externalId, apiVersion })
-    return new Response(JSON.stringify({ ok: true }), {
+  if (idempotency.alreadyProcessed) {
+    return new Response(JSON.stringify({ ok: true, already_processed: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })
   }
 
-  const orderId = externalReference
-
-  if (status === 'approved') {
-    const result = await processApprovedPayment(orderId, externalId)
-    if (result.oversell) {
-      console.error('[webhook] oversell detected', { orderId, refundStatus: result.refundStatus })
-    }
-  } else if (status === 'rejected' || status === 'cancelled') {
-    await markOrderCancelled(orderId, externalId, status)
-  }
+  await processSinglePayment(dataId, apiVersion, 'payment')
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,

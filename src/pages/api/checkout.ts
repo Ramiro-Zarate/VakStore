@@ -57,12 +57,14 @@ export const POST: APIRoute = async ({ request }) => {
       stock_quantity,
       version,
       size,
-      product:products (
+      product:products!inner (
         id,
-        name
+        name,
+        is_active
       )
     `)
     .in('id', variantIds)
+    .eq('product.is_active', true)
 
   if (variantsError) {
     console.error('[checkout] variants lookup failed', variantsError)

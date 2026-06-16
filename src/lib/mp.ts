@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, PaymentRefund } from 'mercadopago'
+import { MercadoPagoConfig, PaymentRefund, MerchantOrder } from 'mercadopago'
 
 export const SITE_URL = import.meta.env.PUBLIC_SITE_URL || 'http://localhost:4321'
 
@@ -27,4 +27,22 @@ export async function refundPayment(paymentId: string | number): Promise<RefundR
     const message = err instanceof Error ? err.message : String(err)
     return { ok: false, error: message }
   }
+}
+
+export interface MerchantOrderPayment {
+  id?: number | string
+  status?: string
+}
+
+export interface MerchantOrderFromMp {
+  id?: number | string
+  payments?: MerchantOrderPayment[]
+}
+
+export async function getMerchantOrder(
+  merchantOrderId: string | number
+): Promise<MerchantOrderFromMp> {
+  const mo = new MerchantOrder(getMpClient())
+  const result = await mo.get({ merchantOrderId: String(merchantOrderId) })
+  return result as unknown as MerchantOrderFromMp
 }
