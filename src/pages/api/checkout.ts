@@ -203,7 +203,6 @@ export const POST: APIRoute = async ({ request }) => {
           email: customer.email,
           name: customer.name
         },
-        purpose: 'wallet_purchase',
         external_reference: orderId,
         back_urls: {
           success: `${SITE_URL}/pedido/${orderId}`,
