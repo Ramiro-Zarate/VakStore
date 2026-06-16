@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useCartStore } from '../hooks/useCartStore'
 import { Field, Input, Icon } from './Primitives'
 import styles from './CheckoutForm.module.css'
-
+ /* Este tambien participa*/
 interface FormState {
   email: string
   name: string

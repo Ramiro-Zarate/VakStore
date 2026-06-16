@@ -1,4 +1,4 @@
-import { z } from 'zod'
+/* import { z } from 'zod'
 
 export const checkoutItemSchema = z.object({
   variantId: z.string().uuid(),
@@ -18,4 +18,4 @@ export const checkoutSchema = z.object({
   customer: checkoutCustomerSchema
 })
 
-export type CheckoutInput = z.infer<typeof checkoutSchema>
+export type CheckoutInput = z.infer<typeof checkoutSchema> */
