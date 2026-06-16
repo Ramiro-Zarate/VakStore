@@ -130,7 +130,8 @@ export const POST: APIRoute = async ({ request }) => {
       id: variant.id,
       title: `${variant.product?.name ?? 'Producto'} - ${variant.version} - Talle ${variant.size}`,
       quantity: item.quantity,
-      unit_price: Number(price.toFixed(2))
+      unit_price: Number(price.toFixed(2)),
+      currency_id: 'ARS'
     })
   }
 
@@ -202,6 +203,7 @@ export const POST: APIRoute = async ({ request }) => {
           email: customer.email,
           name: customer.name
         },
+        purpose: 'wallet_purchase',
         external_reference: orderId,
         back_urls: {
           success: `${SITE_URL}/pedido/${orderId}`,
