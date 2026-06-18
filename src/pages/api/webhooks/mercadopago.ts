@@ -332,7 +332,7 @@ async function handleWebhook(request: Request): Promise<Response> {
   })
 
   const isPaymentEvent =
-    body.type === 'payment' &&
+    (body.type === 'payment' || body.topic === 'payment') &&
     (apiVersion === 'v3' ||
       !body.action ||
       ['payment.created', 'payment.updated'].includes(body.action))
