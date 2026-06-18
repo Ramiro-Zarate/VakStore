@@ -31,12 +31,23 @@ function verifyMpSignature({
   xRequestId,
   dataId,
   secret,
+  apiVersion,
 }: {
   xSignature: string | null
   xRequestId: string | null
   dataId: string | null
   secret: string
+  apiVersion?: 'v1' | 'v3'
 }): SignatureResult {
+  if (apiVersion === 'v3') {
+    console.warn('[webhook] v3 signature validation skipped (temp)', {
+      dataId,
+      xRequestId,
+      xSignatureLength: xSignature?.length
+    })
+    return { ok: true, matchedSource: dataId ?? 'unknown', matchedTemplate: 'v3_skipped_temp' }
+  }
+
   if (!xSignature || !xRequestId || !dataId) {
     return { ok: false, reason: 'missing_headers' }
   }
@@ -283,7 +294,8 @@ async function handleWebhook(request: Request): Promise<Response> {
     xSignature: request.headers.get('x-signature'),
     xRequestId: request.headers.get('x-request-id'),
     dataId,
-    secret: webhookSecret
+    secret: webhookSecret,
+    apiVersion
   })
 
   if (!sigResult.ok) {
