@@ -337,8 +337,9 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 - ✅ Refund automático por oversell implementado (`PaymentRefund.total()`).
 - ✅ Webhook de `topic=merchant_order` (commit 612488d) ya manejado en código.
 - 🛠 `MP_MOCK_MODE` no está en Vercel → corre flow real contra producción.
+- ✅ `RESEND_API_KEY` y `RESEND_FROM_EMAIL` configurados en Vercel. Email de confirmación llega al cliente linkeado con su cuenta de MP. Validado end-to-end.
+- 📞 Pendiente: resolver 500 en `POST /api/orders/[id]`. `image_url` SÍ existe en `products` como single text (verificado). Hipótesis revisada: FK relationship faltante o mal nombrada entre `order_items → product_variants → products` que rompe el nested select de PostgREST. Pendiente: verificar FKs con query en Supabase o capturar stack trace de Vercel. Contexto: a corto plazo se planea migrar `image_url: text` → `images: text[]` para soportar 3-4 imágenes por producto (carrousel), lo que va a requerir migración de schema + update de tipos + update de los 4 componentes que leen la imagen + update del seed.
 - 📞 Pendiente: debug del manifest format de v3 para re-habilitar validación de firma v3 (actualmente skipeada con warning).
-- 📞 Pendiente: `RESEND_API_KEY` y `RESEND_FROM_EMAIL` configurados en Vercel para emails transaccionales (sin esto, emails se loggean pero no salen).
 - 📞 Pendiente: tests Playwright del flow completo (Fase 3.1).
 
 ---
