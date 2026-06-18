@@ -218,6 +218,13 @@ export const POST: APIRoute = async ({ request }) => {
       throw new Error('MP did not return init_point')
     }
 
+    console.log('[checkout] MP preference created', {
+      orderId,
+      init_point: result.init_point,
+      sandbox_init_point: result.sandbox_init_point,
+      mode: result.sandbox_init_point ? 'sandbox' : 'production'
+    })
+
     return new Response(
       JSON.stringify({ init_point: result.init_point, orderId }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
