@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro'
 import * as Sentry from '@sentry/astro'
-import { Payment, WebhookSignatureValidator, InvalidWebhookSignatureError } from 'mercadopago'
+import { Payment } from 'mercadopago'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 import { getMpClient, getMerchantOrder } from '../../../lib/mp'
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
 import { processApprovedPayment, markOrderCancelled } from '../../../lib/orderProcessing'
@@ -41,30 +42,39 @@ function verifyMpSignature({
   }
 
   try {
-    WebhookSignatureValidator.validate({
-      xSignature,
-      xRequestId,
-      dataId,
-      secret,
-      toleranceSeconds: 300
-    })
-    return { ok: true, matchedSource: dataId, matchedTemplate: 'sdk_official' }
-  } catch (err) {
-    if (err instanceof InvalidWebhookSignatureError) {
-      console.error('[webhook] sdk signature rejected', {
-        reason: err.reason,
-        xRequestId,
-        dataId,
-        ts: err.timestamp,
-        xSignatureLength: xSignature.length
-      })
-      Sentry.captureMessage('MP webhook signature mismatch', {
-        level: 'error',
-        extra: { reason: err.reason, dataId, ts: err.timestamp }
-      })
-      return { ok: false, reason: err.reason }
+    const parts = xSignature.split(',')
+    let ts: string | null = null
+    let v1Hash: string | null = null
+    for (const part of parts) {
+      const [k, v] = part.split('=').map(s => s.trim())
+      if (k === 'ts') ts = v
+      else if (k === 'v1') v1Hash = v
     }
-    throw err
+    if (!ts || !v1Hash) {
+      return { ok: false, reason: 'malformed_signature' }
+    }
+    if (!/^\d+$/.test(ts)) {
+      return { ok: false, reason: 'malformed_timestamp' }
+    }
+
+    const manifest = `id:${dataId.toLowerCase()};request-id:${xRequestId};ts:${ts};`
+    const computed = createHmac('sha256', secret).update(manifest).digest('hex')
+
+    if (computed.length !== v1Hash.length || !timingSafeEqual(Buffer.from(computed), Buffer.from(v1Hash))) {
+      return { ok: false, reason: 'signature_mismatch' }
+    }
+
+    const tsMs = Number(ts) * 1000
+    const driftSeconds = Math.abs(Date.now() - tsMs) / 1000
+    if (driftSeconds > 300) {
+      return { ok: false, reason: 'timestamp_out_of_tolerance' }
+    }
+
+    return { ok: true, matchedSource: dataId, matchedTemplate: 'sdk_official_patched' }
+  } catch (err) {
+    console.error('[webhook] signature validation error', { err })
+    Sentry.captureException(err, { extra: { stage: 'signature_validate' } })
+    return { ok: false, reason: 'validation_error' }
   }
 }
 
