@@ -115,6 +115,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   } | null
 
   if (error) {
+    console.error('[orders/[id]] supabase error', error)
     return new Response(JSON.stringify({ error: 'Lookup failed' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
