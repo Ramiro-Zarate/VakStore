@@ -35,16 +35,14 @@ Node: `>=22.12.0`.
 | `PUBLIC_SITE_URL` | server | URL base para back_urls de MP y redirects del checkout. | Requerida |
 | `RESEND_API_KEY` | **server only** | API key de Resend | **Requerida en producción.** Opcional en dev, sin esto emails se loggean pero no salen. Crear cuenta en [resend.com](https://resend.com) (free tier: 3.000/mes), setear en Vercel (3 envs). |
 | `RESEND_FROM_EMAIL` | server | Email del sender (ej. `onboarding@resend.dev`) | Opcional, default `onboarding@resend.dev` |
-| `UPSTASH_REDIS_REST_URL` | server | Rate limiting (Upstash) | Opcional, sin esto el rate limit deja pasar |
-| `UPSTASH_REDIS_REST_TOKEN` | server | Rate limiting (Upstash) | Opcional |
-| `SENTRY_DSN` | server | Captura de errores en producción | Opcional, sin esto Sentry se desactiva |
-| `SENTRY_AUTH_TOKEN` | server | Auth token para subir source maps a Sentry | Opcional, solo para CI |
+
+> **Nota**: Sentry (`@sentry/astro`) y Upstash (`@upstash/ratelimit` + `@upstash/redis`) están instalados en `package.json` y referenciados en código, pero **no se usan activamente** (no se crearán cuentas externas). El rate limit degrada a "deja pasar" si no hay config. Sentry no captura nada.
 
 **Reglas:**
 - `PUBLIC_*` se exponen al cliente. Todo lo demás es server-only.
 - `SUPABASE_SERVICE_ROLE_KEY` debe **nunca** aparecer en `src/lib/supabase.ts` ni en componentes. Solo en `src/lib/supabaseAdmin.ts` (server).
 - `.env` está en `.gitignore`. Verificar con `git log --all --full-history -- .env` antes de cada release.
-- Los servicios opcionales (Upstash, Sentry, Resend) funcionan con configuración parcial: si falta la env var, el código degrada con un warning, no rompe.
+- Los servicios opcionales (Resend) funcionan con configuración parcial: si falta la env var, el código degrada con un warning, no rompe. Sentry y Upstash están instalados pero son inertes sin env vars.
 
 ---
 
@@ -196,19 +194,15 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] Eliminar import muerto de `node:crypto` en `src/pages/api/webhooks/mercadopago.ts`
 - [ ] Validar flow E2E con tarjeta sandbox APRO (`MP_MOCK_MODE=false` + token TEST) — bloqueado por cuenta MP al 50% de onboarding
 
-### ⏳ Fase 3 — Robustez (pendiente)
-> **Orden de ejecución sugerido** (por dependencia):
-> 0. **Fix webhook `topic=merchant_order`** — bloqueante real de producción. Asume mock mode como fallback.
-> 1. **Tests Playwright E2E** — habilita validar los demás cambios sin romper prod. Asume Fase 2.5 + fix merchant_order mergeada.
-> 2. **Refund automático por oversell** — depende de los tests para validar el path de error.
-> 3. **Upstash + Sentry con keys reales** — independiente de MP.
-> 4. **MP onboarding 80%+ y sacar mock mode** — depende de soporte externo de MP. Cuando esto pase, rotar `MP_ACCESS_TOKEN` a producción y setear `MP_MOCK_MODE=false`.
-- [x] Refund automático si oversell (vía `PaymentRefund.total({ payment_id })` + email cancelación + Sentry)
+### ⏳ Fase 3 — Pendientes activos
+
+- [x] Refund automático si oversell (vía `PaymentRefund.total({ payment_id })` + email cancelación)
 - [x] **Idempotencia funcional en `processApprovedPayment`**: early-return si la orden ya está en estado terminal (`paid`/`delivered`). Previene doble decrement de stock cuando MP re-envía webhooks `approved` con `dataId` distinto.
-- [ ] **Fix webhook `topic=merchant_order`** (bloqueante de producción) — ver plan en `audit/post-compra-2026-06-11.md` sección 3
-- [ ] Tests Playwright del flow completo
-- [ ] Configurar cuentas de Upstash y Sentry con keys reales
-- [ ] Completar onboarding de MP al 80%+ y sacar mock mode
+- [x] **Fix webhook `topic=merchant_order`** — manejado en `handleMerchantOrder` (commit 612488d). Idempotencia usa `dataId` real de cada `payment` adentro del `merchant_order`.
+- [x] **Onboarding de MP completo** — `MP_ACCESS_TOKEN` productivo en Vercel, cobros reales validados.
+- [ ] **Resolver 500 en `POST /api/orders/[id]`** — ver §10. La página `/pedido` con lookup form ya existe (rama principal) pero no se puede testear E2E hasta arreglar este 500. Pendiente: confirmar causa raíz y aplicar fix.
+- [ ] **Validar path de oversell con MP real** — código en `processApprovedPayment` (oversell → cancel + refund + email), no probado E2E. Procedimiento en §10.
+- [ ] **🟢 UX — Banner de cookies + página `/privacidad`** — cartel no-bloqueante en el bottom, persistir elección en localStorage, página con términos y política de privacidad. Ley 25.326 no obliga en AR pero es buena práctica + prepara para sumar analytics cuando haga falta.
 
 **Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
 
@@ -340,18 +334,15 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 - ✅ `RESEND_API_KEY` y `RESEND_FROM_EMAIL` configurados en Vercel. Email de confirmación llega al cliente linkeado con su cuenta de MP. Validado end-to-end.
 - 📞 Pendiente: resolver 500 en `POST /api/orders/[id]`. `image_url` SÍ existe en `products` como single text (verificado). Hipótesis revisada: FK relationship faltante o mal nombrada entre `order_items → product_variants → products` que rompe el nested select de PostgREST. Pendiente: verificar FKs con query en Supabase o capturar stack trace de Vercel. Contexto: a corto plazo se planea migrar `image_url: text` → `images: text[]` para soportar 3-4 imágenes por producto (carrousel), lo que va a requerir migración de schema + update de tipos + update de los 4 componentes que leen la imagen + update del seed.
 - 📞 Pendiente: debug del manifest format de v3 para re-habilitar validación de firma v3 (actualmente skipeada con warning).
-- 📞 Pendiente: tests Playwright del flow completo (Fase 3.1).
 
 ---
 
-## 11. Setup para producción (cuando MP esté destrabado)
+## 11. Setup de MP para producción (referencia histórica)
 
-1. Crear cuenta en [upstash.com](https://upstash.com), crear Redis DB, pegar:
-   - `UPSTASH_REDIS_REST_URL`
-   - `UPSTASH_REDIS_REST_TOKEN`
-2. Crear proyecto en [sentry.io](https://sentry.io), copiar DSN:
-   - `SENTRY_DSN`
-   - Opcional: `SENTRY_AUTH_TOKEN` para subir source maps
+Pasos originalmente necesarios para salir a producción con MP. Ya completados (ver §10):
+
+1. ~~Crear cuenta en [upstash.com](https://upstash.com)~~ — descartado, no se usará Upstash.
+2. ~~Crear proyecto en [sentry.io](https://sentry.io)~~ — descartado, no se usará Sentry.
 3. Completar onboarding de MP al 80%+
 4. Cambiar `MP_ACCESS_TOKEN` de TEST a PRODUCCIÓN
 5. Setear `MP_MOCK_MODE=false` o borrar la env var

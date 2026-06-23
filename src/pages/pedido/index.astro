@@ -1,0 +1,29 @@
+---
+export const prerender = false
+
+import Layout from '../../layouts/Layout.astro'
+import OrderLookupForm from '../../components/OrderLookupForm.tsx'
+---
+
+<Layout title="Buscar mi pedido | Vak Store">
+  <div class="page">
+    <header class="header">
+      <p class="eyebrow">— Pedido</p>
+      <h1 class="title">Buscar mi pedido</h1>
+      <p class="subtitle">Ingresá el número de pedido y el email que usaste al comprar.</p>
+    </header>
+    <div class="card">
+      <OrderLookupForm client:load />
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .page { max-width: 760px; margin: 0 auto; padding: var(--space-7) var(--space-5); }
+  .header { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-6); text-align: center; }
+  .eyebrow { font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wider); color: var(--color-accent); margin: 0; }
+  .title { font-family: var(--font-display); font-size: var(--text-4xl); font-weight: var(--weight-bold); line-height: var(--leading-none); letter-spacing: var(--tracking-tight); color: var(--color-text-primary); margin: 0; }
+  @media (max-width: 640px) { .title { font-size: var(--text-3xl); } }
+  .subtitle { font-size: var(--text-base); color: var(--color-text-secondary); margin: 0; }
+  .card { background-color: var(--color-bg-elev-1); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: var(--space-6); max-width: 480px; margin: 0 auto; }
+</style>

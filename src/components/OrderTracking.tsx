@@ -103,6 +103,12 @@ export default function OrderTracking() {
     const pathParts = window.location.pathname.split('/')
     const id = pathParts[pathParts.length - 1]
     setOrderId(id)
+
+    const prefilledEmail = sessionStorage.getItem('orderLookupEmail')
+    if (prefilledEmail) {
+      setEmail(prefilledEmail)
+      sessionStorage.removeItem('orderLookupEmail')
+    }
   }, [])
 
   const handleVerify = async (e: React.FormEvent) => {
