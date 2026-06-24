@@ -200,7 +200,7 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] **Idempotencia funcional en `processApprovedPayment`**: early-return si la orden ya está en estado terminal (`paid`/`delivered`). Previene doble decrement de stock cuando MP re-envía webhooks `approved` con `dataId` distinto.
 - [x] **Fix webhook `topic=merchant_order`** — manejado en `handleMerchantOrder` (commit 612488d). Idempotencia usa `dataId` real de cada `payment` adentro del `merchant_order`.
 - [x] **Onboarding de MP completo** — `MP_ACCESS_TOKEN` productivo en Vercel, cobros reales validados.
-- [ ] **Resolver 500 en `POST /api/orders/[id]`** — ver §10. La página `/pedido` con lookup form ya existe (rama principal) pero no se puede testear E2E hasta arreglar este 500. Pendiente: confirmar causa raíz y aplicar fix.
+- [x] **Resolver 500 en `POST /api/orders/[id]`** — fix: `product_variant` → `product_variants` y `product` → `products` en el nested select. PostgREST expone las relaciones en plural por el nombre del FK constraint (hipótesis confirmada). El form de `/pedido` ahora carga el pedido correctamente. Ver §10 para el detalle.
 - [ ] **Validar path de oversell con MP real** — código en `processApprovedPayment` (oversell → cancel + refund + email), no probado E2E. Procedimiento en §10.
 - [ ] **🟢 UX — Banner de cookies + página `/privacidad`** — cartel no-bloqueante en el bottom, persistir elección en localStorage, página con términos y política de privacidad. Ley 25.326 no obliga en AR pero es buena práctica + prepara para sumar analytics cuando haga falta.
 
@@ -332,7 +332,8 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 - ✅ Webhook de `topic=merchant_order` (commit 612488d) ya manejado en código.
 - 🛠 `MP_MOCK_MODE` no está en Vercel → corre flow real contra producción.
 - ✅ `RESEND_API_KEY` y `RESEND_FROM_EMAIL` configurados en Vercel. Email de confirmación llega al cliente linkeado con su cuenta de MP. Validado end-to-end.
-- 📞 Pendiente: resolver 500 en `POST /api/orders/[id]`. `image_url` SÍ existe en `products` como single text (verificado). Hipótesis revisada: FK relationship faltante o mal nombrada entre `order_items → product_variants → products` que rompe el nested select de PostgREST. Pendiente: verificar FKs con query en Supabase o capturar stack trace de Vercel. Contexto: a corto plazo se planea migrar `image_url: text` → `images: text[]` para soportar 3-4 imágenes por producto (carrousel), lo que va a requerir migración de schema + update de tipos + update de los 4 componentes que leen la imagen + update del seed.
+- ✅ Resuelto: 500 en `POST /api/orders/[id]`. Causa raíz confirmada: PostgREST expone las relaciones `order_items → product_variants` y `product_variants → products` en plural por el naming del FK constraint. El query usaba singular (`product_variant` y `product`) → PGRST200. Fix: 2 cambios de 1 palabra en el nested select de `src/pages/api/orders/[id].ts:82,85`. El form de `/pedido` ahora muestra el pedido correctamente. **Nota para Opción B (futuro)**: renombrar los FK constraints a singular + `NOTIFY pgrst, 'reload schema'` permitiría volver al singular en el código (convención más semántica). Pendiente solo si la inconsistencia molesta.
+- 📞 Pendiente: resolver 500 en `POST /api/orders/[id]`. (movido arriba como ✅)
 - 📞 Pendiente: debug del manifest format de v3 para re-habilitar validación de firma v3 (actualmente skipeada con warning).
 
 ---
