@@ -82,7 +82,7 @@ export const POST: APIRoute = async ({ params, request }) => {
         product_variants (
           size,
           version,
-          product (
+          products (
             name,
             image_url
           )
