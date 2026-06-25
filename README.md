@@ -4,8 +4,7 @@
 npm create astro@latest -- --template minimal
 ```
 
-prueba de push desde notebook
-
+notebook confirmada
 > 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
 
 ## 🚀 Project Structure
