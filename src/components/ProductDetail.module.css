@@ -136,6 +136,15 @@
   color: var(--color-text-secondary);
 }
 
+.description {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-secondary);
+  margin: 0;
+  white-space: pre-line;
+}
+
 .priceRow {
   display: flex;
   align-items: baseline;

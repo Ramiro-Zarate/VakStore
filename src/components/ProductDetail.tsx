@@ -118,6 +118,10 @@ export default function ProductDetail({ product }: Props) {
         {product.league && <p className={styles.eyebrow}>{product.league}</p>}
         <h1 className={styles.name}>{product.name}</h1>
 
+        {product.description && (
+          <p className={styles.description}>{product.description}</p>
+        )}
+
         {productVersion && (
           <p className={styles.versionInfo}>
             Versión
