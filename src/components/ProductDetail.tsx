@@ -133,6 +133,9 @@ export default function ProductDetail({ product }: Props) {
           <span className={styles.price}>
             {basePrice > 0 ? `$${basePrice.toLocaleString('es-AR')}` : 'Consultar'}
           </span>
+          {basePrice > 0 && !isOutOfStock && (
+            <span className={styles.transferHint}>15% off pagando por transferencia</span>
+          )}
         </div>
 
         <fieldset className={styles.fieldset}>

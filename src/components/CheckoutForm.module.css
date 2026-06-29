@@ -457,3 +457,8 @@
   text-transform: uppercase;
   letter-spacing: var(--tracking-wider);
 }
+
+.summaryDiscountRow {
+  color: var(--color-success);
+  font-weight: var(--weight-semibold);
+}

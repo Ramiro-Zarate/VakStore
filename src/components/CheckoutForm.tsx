@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useCartStore } from '../hooks/useCartStore'
 import { Field, Input, Icon } from './Primitives'
+import { TRANSFER_DISCOUNT } from '../lib/bankInfo'
 import styles from './CheckoutForm.module.css'
 
 interface FormState {
@@ -54,6 +55,12 @@ export default function CheckoutForm() {
   }
 
   const total = getCartTotal() + SHIPPING_METHOD.cost
+  const subtotal = getCartTotal()
+  const shipping = SHIPPING_METHOD.cost
+  const isTransfer = form.paymentMethod === 'transfer'
+  const transferDiscount = isTransfer ? subtotal * TRANSFER_DISCOUNT : 0
+  const totalTransfer = subtotal - transferDiscount + shipping
+  const activeTotal = isTransfer ? totalTransfer : total
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -360,17 +367,23 @@ export default function CheckoutForm() {
         <div className={styles.summaryBreakdown}>
           <div className={styles.summaryBreakdownRow}>
             <span>Subtotal</span>
-            <span>${getCartTotal().toLocaleString('es-AR')}</span>
+            <span>${subtotal.toLocaleString('es-AR')}</span>
           </div>
           <div className={styles.summaryBreakdownRow}>
             <span>Envío</span>
-            <span>${SHIPPING_METHOD.cost.toLocaleString('es-AR')}</span>
+            <span>${shipping.toLocaleString('es-AR')}</span>
           </div>
+          {isTransfer && (
+            <div className={`${styles.summaryBreakdownRow} ${styles.summaryDiscountRow}`}>
+              <span>15% off en transferencia</span>
+              <span>-${transferDiscount.toLocaleString('es-AR')}</span>
+            </div>
+          )}
         </div>
         <div className={styles.summaryTotal}>
           <span className={styles.summaryTotalLabel}>Total</span>
           <span className={styles.summaryTotalAmount}>
-            ${total.toLocaleString('es-AR')}
+            ${activeTotal.toLocaleString('es-AR')}
           </span>
         </div>
       </aside>

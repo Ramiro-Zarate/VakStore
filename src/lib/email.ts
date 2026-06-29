@@ -36,6 +36,9 @@ export interface TransferInstructionsEmailData {
   orderId: string
   customerName: string
   customerEmail: string
+  subtotal: number
+  shipping: number
+  discount: number
   totalAmount: number
   bankInfo: { alias: string; cbu: string; holder: string; cuit: string }
   whatsappUrl: string
@@ -186,6 +189,18 @@ export async function sendOrderCancelledEmail(data: OrderCancelledEmailData): Pr
 }
 
 function buildTransferInstructionsEmail(data: TransferInstructionsEmailData): string {
+  const subtotalFormatted = data.subtotal.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS'
+  })
+  const shippingFormatted = data.shipping.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS'
+  })
+  const discountFormatted = data.discount.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS'
+  })
   const totalFormatted = data.totalAmount.toLocaleString('es-AR', {
     style: 'currency',
     currency: 'ARS'
@@ -194,7 +209,15 @@ function buildTransferInstructionsEmail(data: TransferInstructionsEmailData): st
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#131313;">
       <h1 style="color:#970005;margin:0 0 16px;">Tu pedido está esperando el pago</h1>
       <p>Hola ${data.customerName},</p>
-      <p>Recibimos tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> por <strong>${totalFormatted}</strong> y quedó reservado. Para confirmarlo, hacé una transferencia con los datos de abajo.</p>
+      <p>Recibimos tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> y quedó reservado. Para confirmarlo, hacé una transferencia con los datos de abajo.</p>
+
+      <h2 style="font-size:18px;margin:24px 0 8px;">Resumen</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;color:#666;">Subtotal</td><td style="padding:6px 0;text-align:right;">${subtotalFormatted}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">Envío</td><td style="padding:6px 0;text-align:right;">${shippingFormatted}</td></tr>
+        <tr><td style="padding:6px 0;color:#16a34a;">15% off en transferencia</td><td style="padding:6px 0;text-align:right;color:#16a34a;">-${discountFormatted}</td></tr>
+        <tr><td style="padding:12px 0;color:#666;border-top:2px solid #131313;"><strong>Total a transferir</strong></td><td style="padding:12px 0;font-size:18px;font-weight:bold;color:#970005;border-top:2px solid #131313;text-align:right;">${totalFormatted}</td></tr>
+      </table>
 
       <h2 style="font-size:18px;margin:24px 0 8px;">Datos bancarios</h2>
       <table style="width:100%;border-collapse:collapse;">
@@ -202,7 +225,6 @@ function buildTransferInstructionsEmail(data: TransferInstructionsEmailData): st
         <tr><td style="padding:6px 0;color:#666;">CBU</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cbu}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">Titular</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.holder}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">CUIT</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cuit}</td></tr>
-        <tr><td style="padding:12px 0;color:#666;border-top:2px solid #131313;"><strong>Monto a transferir</strong></td><td style="padding:12px 0;font-size:18px;font-weight:bold;color:#970005;border-top:2px solid #131313;">${totalFormatted}</td></tr>
       </table>
 
       <h2 style="font-size:18px;margin:24px 0 8px;">Confirmar el pago</h2>

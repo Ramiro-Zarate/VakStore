@@ -6,7 +6,7 @@ import { getSupabaseAdmin } from '../../lib/supabaseAdmin'
 import { checkoutSchema } from '../../lib/checkoutSchema'
 import { processApprovedPayment } from '../../lib/orderProcessing'
 import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
-import { bankInfo, whatsappNumber, transferExpiryHours } from '../../lib/bankInfo'
+import { bankInfo, whatsappNumber, transferExpiryHours, TRANSFER_DISCOUNT } from '../../lib/bankInfo'
 import { sendTransferInstructionsEmail } from '../../lib/email'
 import type { OrdersUpdate } from '../../lib/db'
 
@@ -149,6 +149,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   const totalWithShipping = totalAmount + shippingCost
   const isTransfer = paymentMethod === 'transfer'
+  const transferDiscount = isTransfer ? totalAmount * TRANSFER_DISCOUNT : 0
+  const totalFinal = isTransfer
+    ? Number((totalAmount - transferDiscount + shippingCost).toFixed(2))
+    : Number(totalWithShipping.toFixed(2))
   const transferExpiresAt = new Date(Date.now() + transferExpiryHours * 60 * 60 * 1000).toISOString()
 
   const orderInsert: Record<string, unknown> = {
@@ -157,7 +161,7 @@ export const POST: APIRoute = async ({ request }) => {
     customer_name: customer.name,
     status: isTransfer ? 'awaiting_payment' : 'pending',
     payment_status: 'pending',
-    total_amount: Number(totalWithShipping.toFixed(2)),
+    total_amount: totalFinal,
     shipping_address: customer.address,
     shipping_city: customer.city,
     shipping_postal_code: customer.postalCode,
@@ -201,7 +205,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (isTransfer) {
     const whatsappDigits = whatsappNumber.replace(/[^\d]/g, '')
-    const totalFormatted = totalWithShipping.toLocaleString('es-AR', {
+    const totalFormatted = totalFinal.toLocaleString('es-AR', {
       style: 'currency',
       currency: 'ARS'
     })
@@ -212,7 +216,8 @@ export const POST: APIRoute = async ({ request }) => {
 
     console.log('[checkout] transfer order created', {
       orderId,
-      total: totalWithShipping,
+      total: totalFinal,
+      discount: transferDiscount,
       transferExpiresAt
     })
 
@@ -220,7 +225,10 @@ export const POST: APIRoute = async ({ request }) => {
       orderId,
       customerName: customer.name,
       customerEmail: customer.email,
-      totalAmount: totalWithShipping,
+      subtotal: totalAmount,
+      shipping: shippingCost,
+      discount: transferDiscount,
+      totalAmount: totalFinal,
       bankInfo,
       whatsappUrl
     })

@@ -232,6 +232,23 @@ Varios clientes piden pagar por transferencia y mandar el comprobante por WhatsA
 - `shipping_cost` se suma a `total_amount` y se incluye como línea extra en la `Preference` de MP (afecta lo que cobra MP).
 - La constante `SHIPPING_METHOD` en `src/components/CheckoutForm.tsx` está hardcodeada por ahora. Cuando crezca el catálogo, leer de `/api/shipping` o directamente de Supabase.
 
+#### Descuento del 15% en transferencia
+- **Constante**: `TRANSFER_DISCOUNT = 0.15` en `src/lib/bankInfo.ts`.
+- **Base del cálculo**: 15% sobre el **subtotal** (productos). El envío NO se descuenta.
+  - Ejemplo: subtotal $30.000 + envío $5.000 = $35.000. Con Transfer: $30.000 × 0.85 + $5.000 = **$30.500**.
+- **Aplicación**:
+  - `CheckoutForm.tsx`: el total se recalcula en vivo cuando el user toggle entre MP y Transfer. Aparece un discount row en el summary en verde (`--color-success`).
+  - `src/pages/api/checkout.ts`: cuando `paymentMethod='transfer'`, calcula `totalFinal = subtotal * 0.85 + shippingCost` y lo guarda en `orders.total_amount`. El monto que el cliente transfiere es este.
+  - `src/lib/email.ts`: el email de instrucciones muestra el desglose completo (subtotal, envío, descuento, total a transferir).
+- **Textos en el sitio** (color `--color-success`, mono uppercase):
+  - `src/components/ProductGrid.tsx`: `<p>15% off pagando por transferencia</p>` debajo del precio, **oculto en productos agotados** (`!hasStock`).
+  - `src/components/ProductDetail.tsx`: `<span>15% off pagando por transferencia</span>` inline al lado del precio, oculto en `isOutOfStock`.
+- **Edge cases**:
+  - `total_amount` en DB siempre refleja lo que el cliente paga (con descuento si es Transfer).
+  - El stock no se ve afectado.
+  - El descuento se aplica **solo** cuando `paymentMethod='transfer'`. MP cobra el full.
+  - El redondeo usa `toFixed(2)` (mismo criterio que el resto).
+
 #### Datos del banco
 - **Hardcodeados en `src/lib/bankInfo.ts`** (no en env vars, decisión de implementación).
 - Placeholders: alias `ALIAS.PLACEHOLDER`, CBU `0000000000000000000000`, holder `Nombre Apellido`, CUIT `00-00000000-0`.

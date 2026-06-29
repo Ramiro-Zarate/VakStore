@@ -268,6 +268,9 @@ function ProductCard({ product, delay }: { product: ProductWithVariants; delay: 
               <span className={styles.priceLabel}>Consultar</span>
             )}
           </div>
+          {hasStock && (
+            <p className={styles.transferHint}>15% off pagando por transferencia</p>
+          )}
         </div>
       </a>
     </li>

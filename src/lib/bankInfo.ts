@@ -13,3 +13,6 @@ export const transferDefaultMessage: string =
   'Hola, te paso el comprobante de mi pedido por transferencia.'
 
 export const transferExpiryHours: number = Number(process.env.TRANSFER_EXPIRY_HOURS) || 72
+
+export const TRANSFER_DISCOUNT = 0.15
+
