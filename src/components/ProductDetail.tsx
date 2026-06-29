@@ -159,14 +159,20 @@ export default function ProductDetail({ product }: Props) {
                   role="radio"
                   data-size={size}
                   aria-checked={isSelected}
-                  aria-label={isAvailable ? `Talle ${size}, ${stock} disponibles` : `Talle ${size}, agotado`}
+                  aria-label={
+                    isAvailable
+                      ? `Talle ${size}, ${stock === 1 ? '1 disponible' : `${stock} disponibles`}`
+                      : `Talle ${size}, agotado`
+                  }
                   className={styles.sizeButton}
                   onClick={() => handleSizeSelect(size)}
                   disabled={!isAvailable}
                 >
                   {size}
                   {isAvailable && stock <= 3 && (
-                    <span className={styles.sizeHint}>{stock} left</span>
+                    <span className={styles.sizeHint}>
+                      {stock === 1 ? '¡Última!' : `Quedan ${stock}`}
+                    </span>
                   )}
                 </button>
               )
@@ -221,7 +227,7 @@ export default function ProductDetail({ product }: Props) {
                 : isOutOfStock
                 ? 'Sin stock'
                 : isLowStock
-                ? `¡Últimas ${maxStock} unidades!`
+                ? (maxStock === 1 ? '¡Última unidad!' : `¡Últimas ${maxStock} unidades!`)
                 : `${maxStock} disponibles`}
             </span>
           </div>
