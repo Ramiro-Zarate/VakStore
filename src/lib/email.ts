@@ -32,6 +32,15 @@ export interface OrderCancelledEmailData {
   refunded: boolean
 }
 
+export interface TransferInstructionsEmailData {
+  orderId: string
+  customerName: string
+  customerEmail: string
+  totalAmount: number
+  bankInfo: { alias: string; cbu: string; holder: string; cuit: string }
+  whatsappUrl: string
+}
+
 function formatPrice(value: number): string {
   return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
 }
@@ -173,5 +182,69 @@ export async function sendOrderCancelledEmail(data: OrderCancelledEmailData): Pr
 
   if (error) {
     console.error('[email] Resend error (cancellation):', error)
+  }
+}
+
+function buildTransferInstructionsEmail(data: TransferInstructionsEmailData): string {
+  const totalFormatted = data.totalAmount.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS'
+  })
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#131313;">
+      <h1 style="color:#970005;margin:0 0 16px;">Tu pedido está esperando el pago</h1>
+      <p>Hola ${data.customerName},</p>
+      <p>Recibimos tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> por <strong>${totalFormatted}</strong> y quedó reservado. Para confirmarlo, hacé una transferencia con los datos de abajo.</p>
+
+      <h2 style="font-size:18px;margin:24px 0 8px;">Datos bancarios</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;color:#666;">Alias</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.alias}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">CBU</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cbu}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">Titular</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.holder}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">CUIT</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cuit}</td></tr>
+        <tr><td style="padding:12px 0;color:#666;border-top:2px solid #131313;"><strong>Monto a transferir</strong></td><td style="padding:12px 0;font-size:18px;font-weight:bold;color:#970005;border-top:2px solid #131313;">${totalFormatted}</td></tr>
+      </table>
+
+      <h2 style="font-size:18px;margin:24px 0 8px;">Confirmar el pago</h2>
+      <p>Una vez hecha la transferencia, mandá el comprobante por WhatsApp haciendo click en el botón:</p>
+      <p style="margin:16px 0;">
+        <a href="${data.whatsappUrl}" style="display:inline-block;padding:12px 24px;background-color:#25D366;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">Enviar comprobante por WhatsApp</a>
+      </p>
+      <p style="margin-top:8px;font-size:13px;color:#666;">O seguí el estado de tu pedido en <a href="${import.meta.env.PUBLIC_SITE_URL || 'http://localhost:4321'}/pedido/${data.orderId}" style="color:#970005;">este enlace</a>.</p>
+
+      <p style="margin-top:24px;font-size:13px;color:#666;">
+        <strong>Importante:</strong> tu pedido se cancela automáticamente a las 72hs si no recibimos el comprobante. Si te pasás del plazo y ya transferiste, escribinos y lo resolvemos.
+      </p>
+    </div>
+  `
+}
+
+export async function sendTransferInstructionsEmail(data: TransferInstructionsEmailData): Promise<void> {
+  if (!data.customerEmail || !data.customerEmail.includes('@')) {
+    console.warn('[email] skipping transfer instructions, invalid email', {
+      orderId: data.orderId,
+      email: data.customerEmail
+    })
+    return
+  }
+
+  if (!resend) {
+    console.log('[email] Resend not configured, would send transfer instructions:', {
+      to: data.customerEmail,
+      subject: `Pedido #${data.orderId.slice(0, 8).toUpperCase()} - datos para transferencia`,
+      data
+    })
+    return
+  }
+
+  const { error } = await resend.emails.send({
+    from: fromEmail,
+    to: data.customerEmail,
+    subject: `Pedido #${data.orderId.slice(0, 8).toUpperCase()} - datos para transferencia`,
+    html: buildTransferInstructionsEmail(data)
+  })
+
+  if (error) {
+    console.error('[email] Resend error (transfer instructions):', error)
   }
 }

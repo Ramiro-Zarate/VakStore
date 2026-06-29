@@ -133,11 +133,6 @@ export default function ProductDetail({ product }: Props) {
           <span className={styles.price}>
             {basePrice > 0 ? `$${basePrice.toLocaleString('es-AR')}` : 'Consultar'}
           </span>
-          {basePrice > 0 && (
-            <span className={styles.priceInstallments}>
-              o 3 cuotas de ${Math.round(basePrice / 3).toLocaleString('es-AR')}
-            </span>
-          )}
         </div>
 
         <fieldset className={styles.fieldset}>

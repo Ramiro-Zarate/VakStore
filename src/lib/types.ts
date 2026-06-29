@@ -44,15 +44,35 @@ export interface Order {
   user_id: string | null
   email: string | null
   customer_name: string | null
-  status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  status: 'pending' | 'awaiting_payment' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
   total_amount: number
   shipping_address: string | null
   shipping_city: string | null
   shipping_postal_code: string | null
   payment_intent_id: string | null
   payment_status: string | null
+  payment_method: 'mercadopago' | 'transfer'
+  shipping_method: string | null
+  shipping_cost: number | null
+  bank_info_snapshot: BankInfoSnapshot | null
+  transfer_expires_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface BankInfoSnapshot {
+  alias: string
+  cbu: string
+  holder: string
+  cuit: string
+}
+
+export interface ShippingMethod {
+  id: string
+  name: string
+  base_cost: number
+  is_active: boolean
+  created_at: string
 }
 
 export interface OrderItem {

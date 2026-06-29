@@ -9,6 +9,13 @@ interface FormState {
   address: string
   city: string
   postalCode: string
+  paymentMethod: 'mercadopago' | 'transfer'
+}
+
+const SHIPPING_METHOD = {
+  id: 'nacional',
+  name: 'Envío a todo el país',
+  cost: 5000
 }
 
 const EMPTY_FORM: FormState = {
@@ -16,7 +23,8 @@ const EMPTY_FORM: FormState = {
   name: '',
   address: '',
   city: '',
-  postalCode: ''
+  postalCode: '',
+  paymentMethod: 'mercadopago'
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
@@ -45,7 +53,7 @@ export default function CheckoutForm() {
     )
   }
 
-  const total = getCartTotal()
+  const total = getCartTotal() + SHIPPING_METHOD.cost
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -86,7 +94,10 @@ export default function CheckoutForm() {
             variantId: i.productVariantId,
             quantity: i.quantity
           })),
-          customer: form
+          customer: form,
+          paymentMethod: form.paymentMethod,
+          shippingMethod: SHIPPING_METHOD.id,
+          shippingCost: SHIPPING_METHOD.cost
         })
       })
 
@@ -99,7 +110,11 @@ export default function CheckoutForm() {
       }
 
       clearCart()
-      window.location.href = data.init_point
+      if (data.transfer) {
+        window.location.href = `/pedido/${data.orderId}`
+      } else {
+        window.location.href = data.init_point
+      }
     } catch {
       setSubmitError('Error de conexión. Intentá nuevamente.')
       setSubmitting(false)
@@ -215,13 +230,87 @@ export default function CheckoutForm() {
             </div>
           </section>
 
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionNumber} aria-hidden="true">3</span>
+              <h2 className={styles.sectionTitle}>Método de envío</h2>
+            </div>
+            <div className={styles.radioGroup} role="radiogroup" aria-label="Método de envío">
+              <label className={`${styles.radioOption} ${styles.radioOptionActive}`}>
+                <div className={styles.radioOptionLeft}>
+                  <input
+                    type="radio"
+                    name="shippingMethod"
+                    value={SHIPPING_METHOD.id}
+                    checked
+                    readOnly
+                    className={styles.radioInput}
+                    aria-label={`${SHIPPING_METHOD.name}, $${SHIPPING_METHOD.cost.toLocaleString('es-AR')}`}
+                  />
+                  <span className={styles.radioLabel}>
+                    <span className={styles.radioTitle}>{SHIPPING_METHOD.name}</span>
+                    <span className={styles.radioHint}>48-72h hábiles</span>
+                  </span>
+                </div>
+                <span className={styles.radioPrice}>${SHIPPING_METHOD.cost.toLocaleString('es-AR')}</span>
+              </label>
+            </div>
+          </section>
+
+          <section className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionNumber} aria-hidden="true">4</span>
+              <h2 className={styles.sectionTitle}>Método de pago</h2>
+            </div>
+            <div className={styles.radioGroup} role="radiogroup" aria-label="Método de pago">
+              <label className={`${styles.radioOption} ${form.paymentMethod === 'mercadopago' ? styles.radioOptionActive : ''}`}>
+                <div className={styles.radioOptionLeft}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="mercadopago"
+                    checked={form.paymentMethod === 'mercadopago'}
+                    onChange={() => setForm(prev => ({ ...prev, paymentMethod: 'mercadopago' }))}
+                    className={styles.radioInput}
+                    aria-label="Mercado Pago, tarjeta o Rapipago"
+                  />
+                  <span className={styles.radioLabel}>
+                    <span className={styles.radioTitle}>Mercado Pago</span>
+                    <span className={styles.radioHint}>Tarjeta, débito, Rapipago</span>
+                  </span>
+                </div>
+              </label>
+              <label className={`${styles.radioOption} ${form.paymentMethod === 'transfer' ? styles.radioOptionActive : ''}`}>
+                <div className={styles.radioOptionLeft}>
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value="transfer"
+                    checked={form.paymentMethod === 'transfer'}
+                    onChange={() => setForm(prev => ({ ...prev, paymentMethod: 'transfer' }))}
+                    className={styles.radioInput}
+                    aria-label="Transferencia bancaria"
+                  />
+                  <span className={styles.radioLabel}>
+                    <span className={styles.radioTitle}>Transferencia</span>
+                    <span className={styles.radioHint}>CBU / Alias · 72hs para confirmar</span>
+                  </span>
+                </div>
+              </label>
+            </div>
+          </section>
+
           <button
             type="submit"
             className={styles.submit}
             disabled={submitting}
             aria-busy={submitting || undefined}
           >
-            {submitting ? 'Redirigiendo a Mercado Pago...' : 'Pagar con Mercado Pago'}
+            {submitting
+              ? 'Procesando...'
+              : form.paymentMethod === 'transfer'
+                ? 'Finalizar y ver datos de transferencia'
+                : 'Pagar con Mercado Pago'}
             {!submitting && (
               <Icon size={18} aria-hidden="true">
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -268,6 +357,16 @@ export default function CheckoutForm() {
             </li>
           ))}
         </ul>
+        <div className={styles.summaryBreakdown}>
+          <div className={styles.summaryBreakdownRow}>
+            <span>Subtotal</span>
+            <span>${getCartTotal().toLocaleString('es-AR')}</span>
+          </div>
+          <div className={styles.summaryBreakdownRow}>
+            <span>Envío</span>
+            <span>${SHIPPING_METHOD.cost.toLocaleString('es-AR')}</span>
+          </div>
+        </div>
         <div className={styles.summaryTotal}>
           <span className={styles.summaryTotalLabel}>Total</span>
           <span className={styles.summaryTotalAmount}>

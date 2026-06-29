@@ -11,7 +11,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "seed": "npx tsx scripts/seed.ts",
-    "create-sample": "npx tsx scripts/create-sample.ts"
+    "create-sample": "npx tsx scripts/create-sample.ts",
+    "confirm-order": "npx tsx scripts/confirm-order.ts"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",

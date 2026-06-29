@@ -163,12 +163,6 @@
   margin: 0;
 }
 
-.priceInstallments {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
 .fieldset {
   border: none;
   padding: 0;

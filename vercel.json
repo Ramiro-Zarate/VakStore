@@ -38,5 +38,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cancel-expired-transfers",
+      "schedule": "0 6 * * *"
+    }
   ]
 }

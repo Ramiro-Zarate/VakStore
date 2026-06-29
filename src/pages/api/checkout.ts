@@ -6,6 +6,8 @@ import { getSupabaseAdmin } from '../../lib/supabaseAdmin'
 import { checkoutSchema } from '../../lib/checkoutSchema'
 import { processApprovedPayment } from '../../lib/orderProcessing'
 import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
+import { bankInfo, whatsappNumber, transferExpiryHours } from '../../lib/bankInfo'
+import { sendTransferInstructionsEmail } from '../../lib/email'
 import type { OrdersUpdate } from '../../lib/db'
 
 export const prerender = false
@@ -46,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
     )
   }
 
-  const { items, customer } = parsed.data
+  const { items, customer, paymentMethod, shippingMethod, shippingCost } = parsed.data
   const variantIds = items.map(i => i.variantId)
 
   const { data: variants, error: variantsError } = await getSupabaseAdmin()
@@ -135,19 +137,42 @@ export const POST: APIRoute = async ({ request }) => {
     })
   }
 
+  if (shippingCost > 0) {
+    mpItems.push({
+      id: 'shipping',
+      title: 'Envío',
+      quantity: 1,
+      unit_price: Number(shippingCost.toFixed(2)),
+      currency_id: 'ARS'
+    })
+  }
+
+  const totalWithShipping = totalAmount + shippingCost
+  const isTransfer = paymentMethod === 'transfer'
+  const transferExpiresAt = new Date(Date.now() + transferExpiryHours * 60 * 60 * 1000).toISOString()
+
+  const orderInsert: Record<string, unknown> = {
+    user_id: null,
+    email: customer.email,
+    customer_name: customer.name,
+    status: isTransfer ? 'awaiting_payment' : 'pending',
+    payment_status: 'pending',
+    total_amount: Number(totalWithShipping.toFixed(2)),
+    shipping_address: customer.address,
+    shipping_city: customer.city,
+    shipping_postal_code: customer.postalCode,
+    payment_method: paymentMethod,
+    shipping_method: shippingMethod,
+    shipping_cost: shippingCost
+  }
+  if (isTransfer) {
+    orderInsert.bank_info_snapshot = bankInfo
+    orderInsert.transfer_expires_at = transferExpiresAt
+  }
+
   const { data: order, error: orderError } = await getSupabaseAdmin()
     .from('orders')
-    .insert({
-      user_id: null,
-      email: customer.email,
-      customer_name: customer.name,
-      status: 'pending',
-      payment_status: 'pending',
-      total_amount: Number(totalAmount.toFixed(2)),
-      shipping_address: customer.address,
-      shipping_city: customer.city,
-      shipping_postal_code: customer.postalCode
-    } as any)
+    .insert(orderInsert as never)
     .select('id')
     .single()
 
@@ -172,6 +197,44 @@ export const POST: APIRoute = async ({ request }) => {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
+  }
+
+  if (isTransfer) {
+    const whatsappDigits = whatsappNumber.replace(/[^\d]/g, '')
+    const totalFormatted = totalWithShipping.toLocaleString('es-AR', {
+      style: 'currency',
+      currency: 'ARS'
+    })
+    const whatsappText = encodeURIComponent(
+      `Hola! Te paso el comprobante de mi pedido #${orderId.slice(0, 8).toUpperCase()} por ${totalFormatted}.`
+    )
+    const whatsappUrl = `https://wa.me/${whatsappDigits}?text=${whatsappText}`
+
+    console.log('[checkout] transfer order created', {
+      orderId,
+      total: totalWithShipping,
+      transferExpiresAt
+    })
+
+    await sendTransferInstructionsEmail({
+      orderId,
+      customerName: customer.name,
+      customerEmail: customer.email,
+      totalAmount: totalWithShipping,
+      bankInfo,
+      whatsappUrl
+    })
+
+    return new Response(
+      JSON.stringify({
+        transfer: true,
+        orderId,
+        bankInfo,
+        whatsappUrl,
+        transferExpiresAt
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    )
   }
 
   if (import.meta.env.MP_MOCK_MODE === 'true') {

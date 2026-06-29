@@ -74,6 +74,10 @@ export const POST: APIRoute = async ({ params, request }) => {
       shipping_city,
       shipping_postal_code,
       email,
+      payment_method,
+      payment_intent_id,
+      transfer_expires_at,
+      bank_info_snapshot,
       order_items (
         id,
         product_variant_id,
@@ -101,6 +105,10 @@ export const POST: APIRoute = async ({ params, request }) => {
     shipping_city: string | null
     shipping_postal_code: string | null
     email: string | null
+    payment_method: string
+    payment_intent_id: string | null
+    transfer_expires_at: string | null
+    bank_info_snapshot: { alias: string; cbu: string; holder: string; cuit: string } | null
     order_items?: Array<{
       id: string
       product_variant_id: string

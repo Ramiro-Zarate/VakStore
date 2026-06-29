@@ -35,6 +35,9 @@ Node: `>=22.12.0`.
 | `PUBLIC_SITE_URL` | server | URL base para back_urls de MP y redirects del checkout. | Requerida |
 | `RESEND_API_KEY` | **server only** | API key de Resend | **Requerida en producción.** Opcional en dev, sin esto emails se loggean pero no salen. Crear cuenta en [resend.com](https://resend.com) (free tier: 3.000/mes), setear en Vercel (3 envs). |
 | `RESEND_FROM_EMAIL` | server | Email del sender (ej. `onboarding@resend.dev`) | Opcional, default `onboarding@resend.dev` |
+| `PUBLIC_WHATSAPP_NUMBER` | cliente + server | Número de WhatsApp formato E.164 (ej. `+5491100000000`). Usado para el botón flotante y el CTA de comprobante. | Requerida para Fase 3.5 |
+| `TRANSFER_EXPIRY_HOURS` | server | Horas hasta auto-cancel de una transfer impaga | Opcional, default `72` |
+| `CRON_SECRET` | **server only** | Bearer token para `PUT /api/cron/cancel-expired-transfers` | Requerida para que Vercel Cron llame al endpoint. Generar random (ej. `openssl rand -hex 32`). Setear en Vercel (3 envs). |
 
 > **Nota**: Sentry (`@sentry/astro`) y Upstash (`@upstash/ratelimit` + `@upstash/redis`) están instalados en `package.json` y referenciados en código, pero **no se usan activamente** (no se crearán cuentas externas). El rate limit degrada a "deja pasar" si no hay config. Sentry no captura nada.
 
@@ -206,35 +209,40 @@ MP redirige a back_urls.success → /pedido/[orderId]
 
 **Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
 
-### ⏳ Fase 3.5 — Pago por transferencia + métodos de envío
+### ✅ Fase 3.5 — Pago por transferencia + métodos de envío
 
-> **Bloqueado por bug 3.5** (Resend no verificado). Hasta no comprar/verificar un dominio en Resend, los emails a clientes reales no salen. Esta fase se implementa cuando el bug esté cerrado. UI / checkout API / schema / cron no dependen del email y pueden implementarse primero si se prioriza.
+> **Cerrado en código 2026-06-29.** Bloqueado parcialmente por bug 3.5 (emails a clientes reales no salen hasta verificar dominio en Resend). El resto del flow funciona end-to-end.
 
-Varios clientes piden pagar por transferencia y mandar el comprobante por WhatsApp. Hoy el único método de pago es Mercado Pago y los costos de envío no están modelados (se cotizan a mano por WA). Esta fase agrega los dos flows en paralelo.
+Varios clientes piden pagar por transferencia y mandar el comprobante por WhatsApp. Esta fase agrega el segundo método de pago (junto a MP) y modela los costos de envío que antes se cotizaban a mano.
 
-#### Schema nuevo
+#### Schema nuevo (aplicado vía `scripts/migrations/002_add_payment_and_shipping.sql`)
 - `orders`:
-  - `payment_method` text (`'mercadopago' | 'transfer'`), default `'mercadopago'`
-  - `shipping_method` text (FK a `shipping_methods.id` o string libre para placeholder)
+  - `payment_method` text (`'mercadopago' | 'transfer'`), default `'mercadopago'` + CHECK constraint
+  - `shipping_method` text (FK lógica a `shipping_methods.id`)
   - `shipping_cost` numeric
-  - `bank_info_snapshot` jsonb (alias, CBU, holder, cuit — lo que se le mostró al cliente al crear la orden)
+  - `bank_info_snapshot` jsonb (`{ alias, cbu, holder, cuit }` — lo que se le mostró al cliente al crear la orden; auditable aunque después cambien los datos)
   - `transfer_expires_at` timestamptz (para el cron de auto-cancel)
 - Tabla nueva `shipping_methods` (`id` text PK, `name` text, `base_cost` numeric, `is_active` boolean, `created_at` timestamptz). Seed: 1 fila `nacional` con `base_cost=5000`.
-- Enums nuevos: `payment_method` enum. `status` extiende con `'awaiting_payment'` y opcionalmente `'awaiting_transfer_confirmation'`.
-
-#### Env vars (placeholders, completar en Vercel al deploy)
-- `PUBLIC_WHATSAPP_NUMBER` — formato E.164 (ej. `+5491100000000`). Se usa para armar `wa.me/<número>` con mensaje pre-armado.
-- `BANK_ALIAS` — alias de la cuenta (ej. `VAK.STORE.MP`).
-- `BANK_CBU` — CBU de 22 dígitos.
-- `BANK_HOLDER` — titular de la cuenta.
-- `BANK_CUIT` — CUIT/CUIL del titular (para mostrar en el comprobante si hace falta).
-- `TRANSFER_EXPIRY_HOURS` — default `72`.
-- `CRON_SECRET` — secreto bearer para el endpoint del cron.
+- Índice parcial en `orders.transfer_expires_at` para que el cron no escanee la tabla entera.
+- `status` extiende con `'awaiting_payment'` (nuevo estado para transfers pendientes).
 
 #### Shipping (Fase 3.5.0)
-- Por ahora: un solo método `nacional` a $5000 fijo para todo el país.
-- El schema (`shipping_methods` + `shipping_cost` por orden) ya soporta múltiples métodos y cálculo por CP/zona. Refinar en iteración futura cuando se definan las zonas.
-- `shipping_cost` se suma a `total_amount` y se incluye en la `Preference` de MP (afecta lo que cobra MP).
+- 1 método único: `nacional` / "Envío a todo el país" / $5.000 fijo.
+- El schema (`shipping_methods` + `shipping_cost` por orden) ya soporta múltiples métodos y cálculo por CP/zona. Refinar en iteración futura.
+- `shipping_cost` se suma a `total_amount` y se incluye como línea extra en la `Preference` de MP (afecta lo que cobra MP).
+- La constante `SHIPPING_METHOD` en `src/components/CheckoutForm.tsx` está hardcodeada por ahora. Cuando crezca el catálogo, leer de `/api/shipping` o directamente de Supabase.
+
+#### Datos del banco
+- **Hardcodeados en `src/lib/bankInfo.ts`** (no en env vars, decisión de implementación).
+- Placeholders: alias `ALIAS.PLACEHOLDER`, CBU `0000000000000000000000`, holder `Nombre Apellido`, CUIT `00-00000000-0`.
+- **Reemplazar antes de producción** con los datos reales de la cuenta.
+- `whatsappNumber` se lee de `PUBLIC_WHATSAPP_NUMBER` (env var, ya configurada).
+- `transferExpiryHours` se lee de `TRANSFER_EXPIRY_HOURS` (default 72).
+
+#### Env vars necesarias
+- `PUBLIC_WHATSAPP_NUMBER` — formato E.164 (ej. `+5491100000000`). Ya está en `.env` y `.env` de Vercel.
+- `TRANSFER_EXPIRY_HOURS` — opcional, default `72`.
+- `CRON_SECRET` — secreto bearer para `PUT /api/cron/cancel-expired-transfers`. **Generar y configurar en Vercel** (3 envs: dev/preview/prod).
 
 #### Flow de transferencia
 
@@ -243,59 +251,67 @@ Varios clientes piden pagar por transferencia y mandar el comprobante por WhatsA
      ↓
 [CheckoutForm] sección 1 (contacto) + 2 (envío) + 3 (método envío) + 4 (pago: Transfer)
      ↓
-POST /api/checkout { paymentMethod: 'transfer', shippingMethod, shippingCost, ...customer }
+POST /api/checkout { paymentMethod: 'transfer', shippingMethod: 'nacional', shippingCost: 5000, ...customer }
   ├─ Validar Zod
-  ├─ total = productos + shipping
-  ├─ INSERT order { payment_method: 'transfer', shipping_method, shipping_cost,
-  │                status: 'awaiting_payment', payment_status: 'pending',
-  │                bank_info_snapshot, transfer_expires_at: now() + 72h }
+  ├─ total = productos + 5000
+  ├─ INSERT order { status: 'awaiting_payment', payment_method: 'transfer',
+  │                bank_info_snapshot, transfer_expires_at: now() + 72h, ... }
   ├─ INSERT order_items
-  ├─ return { transfer: true, orderId, whatsappUrl }
+  ├─ sendTransferInstructionsEmail (con datos bancarios + WA link)
+  ├─ return { transfer: true, orderId, bankInfo, whatsappUrl, transferExpiresAt }
   └─ NO llama a MP, NO decrementa stock
      ↓
 window.location = /pedido/[id]
      ↓
-[OrderTracking] status='awaiting_payment' → card con datos bancarios + WhatsApp CTA
+[OrderTracking] status='awaiting_payment' + payment_method='transfer' →
+  card con datos bancarios (alias, CBU, titular, CUIT, monto) + WhatsApp CTA
      ↓
 Cliente transfiere + manda comprobante por WhatsApp
      ↓
 Admin: Supabase Dashboard → orders SET status='paid', payment_status='approved',
        payment_intent_id='TRANSFER-<orderId>' WHERE id=...
      ↓
-Server (manual o via endpoint admin futuro): processApprovedPayment(orderId, 'TRANSFER-<orderId>')
-  ├─ decrement_stock por cada item (mismo RPC que MP, ver C4)
-  ├─ sendOrderConfirmationEmail
-  └─ Si oversell: cancel + email "Pedido cancelado" (NO hay refund MP)
+Admin corre: npm run confirm-order <orderId>
+  └─ Valida status='awaiting_payment' + actualiza a 'paid' con payment_intent_id
+  └─ (NO decrementa stock automáticamente — ver "Deuda técnica" abajo)
+     ↓
+[OrderTracking] status='paid' → la card bancaria se oculta, queda UI normal
 ```
 
-#### UI
-- `CheckoutForm.tsx`:
-  - Sección 3: "Método de envío" — radio con el/los método(s) disponible(s) y precio
-  - Sección 4: "Método de pago" — radio MP / Transfer
+#### UI implementada
+- `src/components/CheckoutForm.tsx`:
+  - Sección 3: "Método de envío" — radio con el método `nacional` ($5.000)
+  - Sección 4: "Método de pago" — radio Mercado Pago / Transferencia
   - Submit: si MP → redirige a `data.init_point`. Si transfer → redirige a `/pedido/[id]`
-- `OrderTracking.tsx`:
+  - Resumen (sidebar) muestra Subtotal + Envío + Total
+- `src/components/CheckoutForm.module.css`: estilos `.radioGroup`, `.radioOption`, `.summaryBreakdown`
+- `src/components/OrderTracking.tsx`:
   - Status label nuevo: "Esperando pago" para `awaiting_payment`
-  - Render condicional: si `payment_method='transfer'` y status `awaiting_payment` → card con datos bancarios (leídos de `bank_info_snapshot`) + WhatsApp CTA (wa.me con mensaje pre-armado con `orderId`, monto, items)
+  - Render condicional: si `payment_method='transfer' && status='awaiting_payment' && bank_info_snapshot` → card con datos bancarios + WhatsApp CTA pre-armado
   - Si status `paid` con transfer: misma UI que MP (la card bancaria se oculta)
-- `OrderTracking.module.css`: estilos para la card de transferencia (distinto a la card normal de tracking)
+- `src/components/OrderTracking.module.css`: estilos `.transferCard`, `.transferList`, `.transferRow`, `.transferCta`, `.transferExpiry`
+- `src/pages/api/orders/[id].ts`: query extendida para devolver los nuevos campos (`payment_method`, `payment_intent_id`, `transfer_expires_at`, `bank_info_snapshot`)
 
 #### Cron — auto-cancel 72hs
-- Endpoint nuevo: `src/pages/api/cron/cancel-expired-transfers.ts` (PUT)
+- Endpoint: `src/pages/api/cron/cancel-expired-transfers.ts` (PUT)
 - Auth: header `Authorization: Bearer ${CRON_SECRET}`
-- Schedule Vercel Cron: diario 03:00 ART (configurar en `vercel.json` con `crons: [{path, schedule}]`)
+- Schedule Vercel Cron: diario 06:00 UTC = 03:00 ART (configurado en `vercel.json`)
 - Lógica:
   ```sql
   SELECT id, email, customer_name, total_amount
   FROM orders
   WHERE status = 'awaiting_payment'
+    AND payment_method = 'transfer'
     AND transfer_expires_at < now()
   ```
-  Por cada una: `UPDATE orders SET status='cancelled', payment_status='rejected'` + `sendOrderCancelledEmail` con motivo "Expiró el plazo para enviar el comprobante de pago"
-- Stock: nada que liberar (nunca se decrementó)
+  Por cada una: `UPDATE orders SET status='cancelled', payment_status='rejected'` + `sendOrderCancelledEmail` con motivo "Expiró el plazo para enviar el comprobante de pago por transferencia."
+- Stock: nada que liberar (nunca se decrementó).
+- Email de cancelación: bloqueado por bug 3.5 si el FROM no está verificado en Resend.
 
 #### Email
 - Nuevo `sendTransferInstructionsEmail` en `src/lib/email.ts`:
   - Datos bancarios (alias, CBU, holder, CUIT)
+  - Monto exacto (productos + envío)
   - Monto exacto (productos + envío)
   - wa.me link con mensaje pre-armado (`Hola, te paso el comprobante de mi pedido #XXXXX por $XXXXX`)
   - Link a `/pedido/[id]` para seguir el estado
@@ -312,18 +328,30 @@ Server (manual o via endpoint admin futuro): processApprovedPayment(orderId, 'TR
 - **WA link roto:** validar formato E.164 al boot. Si está mal configurado, degradar a link genérico `wa.me/${WHATSAPP}` con warning en consola.
 
 #### Tareas
-- [ ] Migración SQL: columnas nuevas en `orders` + tabla `shipping_methods` + seed
-- [ ] Env vars en Vercel (placeholders primero, reales al deploy)
-- [ ] Actualizar Zod schema (`src/lib/checkoutSchema.ts`) con `paymentMethod`, `shippingMethod`, `shippingCost`
-- [ ] Branch en `src/pages/api/checkout.ts` para `paymentMethod='transfer'`
-- [ ] UI: secciones 3 y 4 en `CheckoutForm.tsx` + CSS
-- [ ] UI: render condicional en `OrderTracking.tsx` para transfer + CSS
-- [ ] `sendTransferInstructionsEmail` en `src/lib/email.ts`
-- [ ] Cron: `src/pages/api/cron/cancel-expired-transfers.ts` + `vercel.json`
-- [ ] Decidir path de invocación de `processApprovedPayment` para la confirmación admin (Supabase Dashboard manual por ahora, endpoint API en fase futura)
+- [x] Migración SQL: columnas nuevas en `orders` + tabla `shipping_methods` + seed
+- [x] Env vars en Vercel (placeholders primero, reales al deploy)
+- [x] Actualizar Zod schema (`src/lib/checkoutSchema.ts`) con `paymentMethod`, `shippingMethod`, `shippingCost`
+- [x] Branch en `src/pages/api/checkout.ts` para `paymentMethod='transfer'`
+- [x] UI: secciones 3 y 4 en `CheckoutForm.tsx` + CSS
+- [x] UI: render condicional en `OrderTracking.tsx` para transfer + CSS
+- [x] `sendTransferInstructionsEmail` en `src/lib/email.ts`
+- [x] Cron: `src/pages/api/cron/cancel-expired-transfers.ts` + `vercel.json`
+- [x] Decidir path de invocación de `processApprovedPayment` para la confirmación admin (CLI script `npm run confirm-order` por ahora, endpoint API en fase futura)
+
+#### CLI script para confirmación admin
+- `scripts/confirm-order.ts` (alias: `npm run confirm-order <orderId>`)
+- Uso: el admin hace UPDATE en Supabase Dashboard primero (status='paid', payment_intent_id='TRANSFER-<id>'), después corre el script para registrar el cambio.
+- **Limitación actual**: el script solo hace el UPDATE inicial, no llama `processApprovedPayment` automáticamente. El stock NO se decrementa y el email de confirmación NO se envía. El admin debe hacerlo a mano (o esperar a la versión con endpoint API que lo automatice).
+- Validaciones: rechaza órdenes que no estén en `awaiting_payment`.
+
+#### Deuda técnica
+- **Stock NO se decrementa automáticamente al confirmar transfer.** Decisión consciente por simplicidad del CLI script. Cuando crezca el volumen, agregar endpoint `POST /api/admin/orders/[id]/confirm-transfer` con secret token que llame `processApprovedPayment`.
+- **Email de confirmación al cliente NO se envía** en el mismo path. Mismo fix que arriba.
+- Bloqueado por bug 3.5 hasta que se verifique dominio en Resend.
 
 #### Diferido a fase futura
-- Panel admin propio para confirmar transfers (ahora Supabase Dashboard)
+- Panel admin propio para confirmar transfers (ahora Supabase Dashboard + CLI)
+- Endpoint `POST /api/admin/orders/[id]/confirm-transfer` con secret token (reemplaza al CLI script)
 - Múltiples métodos de envío con cálculo por CP/zona
 - Notificación al admin cuando entra una transfer nueva (Slack/email)
 - Stock reservation al crear la orden (decrement + release si expira)
@@ -352,7 +380,7 @@ Server (manual o via endpoint admin futuro): processApprovedPayment(orderId, 'TR
 #### 🔴 Alta prioridad (afectan directamente al cliente)
 - [x] **1.5** — Validar `customerEmail` antes de `sendOrderConfirmationEmail` y `sendOrderCancelledEmail` (string vacío → Resend falla silenciosamente). Aplicado en `src/lib/email.ts:90-117` y `:145-172`.
 - [x] **2.3** — Validar `dataId` con regex `/^\d+$/` antes de `payment.get()` (webhooks de prueba de MP con id `"0"` o vacío → 500). Aplicado en `src/pages/api/webhooks/mercadopago.ts:208-220`.
-- [ ] **3.5** — **Resend no manda emails a clientes reales (descubierto 2026-06-29)**. `RESEND_FROM_EMAIL=vakindumentaria@gmail.com` no es viable: Resend requiere un dominio propio verificado (gmail.com no se puede verificar). Descubierto durante validación del path oversell: el refund salió OK pero el email de cancelación nunca llegó (403 validation_error). **Fix:** comprar/registrar un dominio (NIC.ar, Namecheap, etc.), agregarlo en resend.com/domains, seguir el wizard de verificación DNS (DKIM + SPF), y cambiar `RESEND_FROM_EMAIL` a `algo@<dominio>`. No requiere cambios de código. Bloquea Fase 3.5 (transfer + shipping) que depende de emails a clientes.
+- [ ] **3.5** — **Resend no manda emails a clientes reales (descubierto 2026-06-29)**. `RESEND_FROM_EMAIL=vakindumentaria@gmail.com` no es viable: Resend requiere un dominio propio verificado (gmail.com no se puede verificar). Descubierto durante validación del path oversell: el refund salió OK pero el email de cancelación nunca llegó (403 validation_error). **Fix:** comprar/registrar un dominio (NIC.ar, Namecheap, etc.), agregarlo en resend.com/domains, seguir el wizard de verificación DNS (DKIM + SPF), y cambiar `RESEND_FROM_EMAIL` a `algo@<dominio>`. No requiere cambios de código. Bloquea Fase 3.5 (transfer + shipping) que depende de emails a clientes. **Estado al cierre de Fase 3.5:** código cerrado, la card de datos bancarios en `/pedido/[id]` muestra la info client-side, pero el email con las instrucciones no llega a clientes reales hasta resolver bug 3.5.
 - [ ] **1.4** — *Descartado.* El bug solo afectaba mock mode (string `MOCK-` rompe MP SDK), no producción real. En prod MP siempre envía IDs numéricos.
 
 #### 🟡 Media prioridad (afectan a producción con volumen)
