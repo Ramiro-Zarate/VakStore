@@ -67,6 +67,10 @@ const year = new Date().getFullYear()
         <li aria-label="Mercado Pago">
           <span>Mercado Pago</span>
         </li>
+        <li aria-label="Transferencia bancaria con 15% de descuento">
+          <span>Transfer</span>
+          <span class="footer-paymentsBadge">15% off</span>
+        </li>
       </ul>
     </div>
   </div>
@@ -199,20 +203,30 @@ const year = new Date().getFullYear()
     gap: var(--space-2);
   }
 
-  .footer-payments li {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 36px;
-    background-color: var(--color-bg-elev-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: var(--weight-bold);
-    letter-spacing: var(--tracking-wide);
-    color: var(--color-text-primary);
-  }
+.footer-payments li {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  background-color: var(--color-bg-elev-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-primary);
+}
+
+.footer-paymentsBadge {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: var(--color-success);
+  margin-left: var(--space-2);
+}
 
   .footer-bottom {
     border-top: 1px solid var(--color-border);
