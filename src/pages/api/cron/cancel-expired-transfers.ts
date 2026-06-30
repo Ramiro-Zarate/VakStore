@@ -51,7 +51,7 @@ export const PUT: APIRoute = async ({ request }) => {
   for (const order of list) {
     const { error: updateError } = await supabase
       .from('orders')
-      .update({ status: 'cancelled', payment_status: 'rejected' })
+      .update({ status: 'cancelled', payment_status: 'rejected' } as never)
       .eq('id', order.id)
 
     if (updateError) {

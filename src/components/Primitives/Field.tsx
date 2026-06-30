@@ -1,4 +1,4 @@
-import { useId, isValidElement, Children } from 'react'
+import { useId, isValidElement, Children, cloneElement } from 'react'
 import type { ReactNode, ReactElement } from 'react'
 import Icon from './Icon'
 import styles from './Field.module.css'
@@ -53,12 +53,12 @@ export default function Field({
     } else if (childArray.length === 1) {
       const child = childArray[0] as ReactElement
       body = isValidElement(child)
-        ? { ...child, props: { ...child.props, ...renderProps } }
+        ? cloneElement(child, renderProps)
         : child
     } else {
       const first = childArray[0] as ReactElement
       const wired = isValidElement(first)
-        ? { ...first, props: { ...first.props, ...renderProps } }
+        ? cloneElement(first, renderProps)
         : first
       body = [wired, ...childArray.slice(1)]
     }

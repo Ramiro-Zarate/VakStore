@@ -131,7 +131,7 @@ export default function OrderTracking() {
     }
   }, [])
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!orderId || !email) return
 

@@ -145,7 +145,7 @@ export const POST: APIRoute = async ({ request }) => {
       quantity: item.quantity,
       unit_price: Number(price.toFixed(2)),
       currency_id: 'ARS'
-    })
+    } as never)
   }
 
   if (shippingCost > 0) {
@@ -155,7 +155,7 @@ export const POST: APIRoute = async ({ request }) => {
       quantity: 1,
       unit_price: Number(shippingCost.toFixed(2)),
       currency_id: 'ARS'
-    })
+    } as never)
   }
 
   const totalWithShipping = totalAmount + shippingCost

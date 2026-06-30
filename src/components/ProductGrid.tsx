@@ -201,6 +201,7 @@ function ProductCard({ product, delay }: { product: ProductWithVariants; delay: 
     ? Math.min(...product.product_variants.map(v => v.price))
     : 0
 
+  const league = product.product_variants[0]?.league ?? null
   const hasStock = product.product_variants.some(v => v.stock_quantity > 0)
   const isFeatured = product.is_featured === true
 
@@ -257,8 +258,8 @@ function ProductCard({ product, delay }: { product: ProductWithVariants; delay: 
           )}
         </div>
         <div className={styles.info}>
-          {product.league && (
-            <span className={styles.eyebrow}>{product.league}</span>
+          {league && (
+            <span className={styles.eyebrow}>{league}</span>
           )}
           <h3 className={styles.name}>{product.name}</h3>
           <div className={styles.priceRow}>

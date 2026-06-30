@@ -14,6 +14,7 @@ export default function ProductDetail({ product }: Props) {
   const { addToCart } = useCartStore()
   const basePrice = product.product_variants[0]?.price || 0
   const productVersion = product.product_variants[0]?.version || null
+  const league = product.product_variants[0]?.league ?? null
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [quantity, setQuantity] = useState(1)
@@ -115,7 +116,7 @@ export default function ProductDetail({ product }: Props) {
       </div>
 
       <div className={styles.infoSection}>
-        {product.league && <p className={styles.eyebrow}>{product.league}</p>}
+        {league && <p className={styles.eyebrow}>{league}</p>}
         <h1 className={styles.name}>{product.name}</h1>
 
         {product.description && (

@@ -70,7 +70,7 @@ const FILTER_LABELS: Record<keyof Filters, string> = {
   maxPrice: 'Precio máx.'
 }
 
-export default function FilterSidebar({ initialFilters = {} }: FilterSidebarProps) {
+export default function FilterSidebar(_: FilterSidebarProps) {
   const [filters, setFilters] = useState<Filters>(getFiltersFromURL)
   const [isOpen, setIsOpen] = useState(false)
   const baseId = useId()

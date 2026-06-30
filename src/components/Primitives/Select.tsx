@@ -1,5 +1,5 @@
 import { forwardRef } from 'react'
-import type { SelectHTMLAttributes, ReactNode } from 'react'
+import type { SelectHTMLAttributes } from 'react'
 import Icon from './Icon'
 import styles from './Select.module.css'
 

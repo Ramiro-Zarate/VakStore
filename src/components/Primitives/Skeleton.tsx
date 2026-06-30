@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import VisuallyHidden from './VisuallyHidden'
 import styles from './Skeleton.module.css'
 

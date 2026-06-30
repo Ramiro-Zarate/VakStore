@@ -54,7 +54,7 @@ export default function ProfileForm({ initialProfile, email }: ProfileFormProps)
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setStatusMessage(null)
 

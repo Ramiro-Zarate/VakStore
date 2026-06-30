@@ -11,7 +11,7 @@ export default function ResetPasswordForm() {
   const [sent, setSent] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     setEmailError(null)

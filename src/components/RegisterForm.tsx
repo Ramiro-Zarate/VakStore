@@ -32,7 +32,7 @@ export default function RegisterForm({ onSuccess }: RegisterFormProps) {
 
   const strength = useMemo(() => getPasswordStrength(password), [password])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
 

@@ -90,9 +90,10 @@ export function onAuthStateChange(callback: (event: string, session: Session | n
   return supabase.auth.onAuthStateChange(callback)
 }
 
-export async function resendVerificationEmail(): Promise<{ error: any }> {
+export async function resendVerificationEmail(email: string): Promise<{ error: any }> {
   const { error } = await supabase.auth.resend({
-    type: 'signup'
+    type: 'signup',
+    email
   })
   return { error }
 }

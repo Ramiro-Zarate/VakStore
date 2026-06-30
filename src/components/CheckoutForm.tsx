@@ -144,7 +144,7 @@ export default function CheckoutForm() {
     return errors
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setSubmitError(null)
     const errors = validate()
