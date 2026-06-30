@@ -35,7 +35,7 @@ Node: `>=22.12.0`.
 | `PUBLIC_SITE_URL` | server | URL base para back_urls de MP y redirects del checkout. | Requerida |
 | `RESEND_API_KEY` | **server only** | API key de Resend | **Requerida en producción.** Opcional en dev, sin esto emails se loggean pero no salen. Crear cuenta en [resend.com](https://resend.com) (free tier: 3.000/mes), setear en Vercel (3 envs). |
 | `RESEND_FROM_EMAIL` | server | Email del sender (ej. `onboarding@resend.dev`) | Opcional, default `onboarding@resend.dev` |
-| `PUBLIC_WHATSAPP_NUMBER` | cliente + server | Número de WhatsApp formato E.164 (ej. `+5491100000000`). Usado para el botón flotante y el CTA de comprobante. | Requerida para Fase 3.5 |
+| `PUBLIC_WHATSAPP_NUMBER` | cliente + server | Número de WhatsApp formato E.164 (ej. `+5491100000000`). Usado para el botón flotante y el CTA de comprobante. | **Crítica**: el botón flotante de WhatsApp (`WhatsAppFloat`) NO se renderiza si esta env var no está seteada. Aplicar a los 3 envs (Production, Preview, Development) en Vercel. |
 | `TRANSFER_EXPIRY_HOURS` | server | Horas hasta auto-cancel de una transfer impaga | Opcional, default `72` |
 | `CRON_SECRET` | **server only** | Bearer token para `PUT /api/cron/cancel-expired-transfers` | Requerida para que Vercel Cron llame al endpoint. Generar random (ej. `openssl rand -hex 32`). Setear en Vercel (3 envs). |
 | `ADMIN_EMAIL` | **server only** | Email destinatario de las notificaciones de nuevas órdenes (Fase 3.7) | Opcional. Si no está seteada, la notif se skipea con warning en consola. Setear en Vercel (3 envs) cuando se quiera activar. |
@@ -529,6 +529,19 @@ Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 - Validar que el CP exista con API externa (no factible sin servicio pago)
 - Notificación separada al admin cuando entra una transfer (hoy usa el mismo path)
 
+### ✅ Post-Fase 3.7 — Quick wins de UX (2026-06-30)
+
+Mejoras menores aplicadas después del cierre de Fase 3.7, antes del
+lanzamiento público. Sin cambios de schema ni de flujo, solo UX/polish.
+
+- **Nueva página `/contacto`** (`src/pages/contacto.astro`): grid 2x2 con 4 cards (WhatsApp, Email, Instagram, Facebook). Datos: WA lee de `PUBLIC_WHOTSAPP_NUMBER`, email `vakindumentaria@gmail.com`, Instagram `@vak.storee`, Facebook placeholder. Reemplaza el link roto `/cuenta#contacto` (la sección `#contacto` nunca existió en `/cuenta`). Nav link: `Contacto` ahora apunta a `/contacto`.
+
+- **Fix Nav active state** (`src/components/Nav.astro`): `isCurrent()` ahora valida query params del href (no solo `pathname.startsWith(path)`). Antes, el link "Ofertas" (`/productos?sale=true`) quedaba activo en cualquier `/productos/*`. Bonus: el `split('#')` resuelve el bug latente del link "Contacto" que nunca quedaba activo (el `pathname` no incluye el hash).
+
+- **Fix tipografía del @ en Instagram** (`src/pages/contacto.astro`): el `@` se renderiza en Inter bold rojo (color accent) en vez de Space Mono (donde el glifo se confundía con otro carácter). CSS: `.at-prefix`.
+
+- **Fix z-index WhatsApp float** (`src/components/WhatsAppFloat.module.css`): el botón verde quedaba tapado por el cookie banner (`z-index: 100`) en la primera visita. Subido a `z-index: 200` (por encima del banner, por debajo de modales futuros). **Crítico:** `PUBLIC_WHOTSAPP_NUMBER` debe estar seteada en Vercel (Production, Preview, Development) o el botón no se renderiza en absoluto.
+
 ### 🐛 Bugs pendientes (audit post-compra 2026-06-11)
 
 > Diagnóstico histórico en `audit/post-compra-2026-06-11.md` (en este mismo repo).
@@ -639,6 +652,8 @@ contexto si alguien toca esos archivos.
 | **C18** | `src/pages/api/checkout.ts:225-242` | `void sendAdminOrderNotification(...)` (fire-and-forget) | Notificación al admin no bloquea el checkout. Si Resend falla, el cliente igual completa la compra. |
 | **C19** | `src/lib/provinces.ts:detectProvinceFromCity` | Normalización NFD + lowercase antes de keyword match | "Córdoba" y "cordoba" matchean el mismo keyword. Resiliente a tildes y mayúsculas. |
 | **C20** | `src/components/CheckoutForm.tsx:60-76` | Province auto-fill solo si `!form.province` (no sobrescribe selección manual del user) | El user puede cambiar la provincia si la detección del CP está mal, y la app no la pisa. |
+| **C21** | `src/components/Nav.astro:8-22` | `isCurrent()` valida query params del href (no solo `pathname.startsWith(path)`) | Sin esto, links con query string (ej. `/productos?sale=true`) se marcan activos en cualquier página que matchee el path. También incluye `split('#')` para que links con hash (ej. `/cuenta#contacto`) matcheen correctamente. |
+| **C22** | `src/components/WhatsAppFloat.module.css:5` | `z-index: 200` (por encima del cookie banner que tiene 100) | El WhatsApp float quedaba visualmente tapado por el banner de cookies en la primera visita. Si se baja el z-index, vuelve el bug. |
 
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization
