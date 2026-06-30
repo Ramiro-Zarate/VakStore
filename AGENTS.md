@@ -548,6 +548,26 @@ Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 
 Si te ahorrás el NOTIFY, vas a perder tiempo debuggeando errores "column not found" para columnas que ya están agregadas.
 
+**Pre-migration checklist (revisar ANTES de escribir el SQL):**
+- [ ] ¿La migración agrega valores a un enum/literal de TypeScript (`src/lib/types.ts`)? → Si sí, **actualizar también la CHECK constraint del DB en la misma migración** (mismo bug que la 002 + `orders_status_check`).
+- [ ] ¿La migración agrega columnas con `NOT NULL`? → Definir un `DEFAULT` compatible con datos existentes o hacer nullable.
+- [ ] ¿Documenté los valores válidos en el comentario del archivo SQL?
+- [ ] ¿El SQL es idempotente? (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`).
+- [ ] ¿Los CHECK constraints usan `IF NOT EXISTS` (vía DO block) para ser re-ejecutables?
+
+#### 🔴 Crítico — CHECK constraint `orders_status_check` no incluye `'awaiting_payment'` (2026-06-30)
+
+**Síntoma:** Después de aplicar la 002 + 003, POST `/api/checkout` con `paymentMethod='transfer'` falla con error `23514`:
+```
+new row for relation "orders" violates check constraint "orders_status_check"
+```
+
+**Causa raíz:** El `Order` type en `src/lib/types.ts` se actualizó en Fase 3.5 para incluir `status='awaiting_payment'`, pero la CHECK constraint `orders_status_check` (creada en una migración anterior) no se actualizó en la misma migración. El type permitía el valor pero el DB lo rechazaba.
+
+**Fix aplicado 2026-06-30:** DROP + ADD CONSTRAINT con la lista completa de 7 statuses (`pending`, `awaiting_payment`, `paid`, `processing`, `shipped`, `delivered`, `cancelled`) + `NOTIFY pgrst, 'reload schema'` + esperar 30s.
+
+**Lección:** Cuando agregás un valor a un literal/union de TypeScript, **SIEMPRE verificar si existe un CHECK constraint en el DB para esa columna**. Si existe, agregarlo en la misma migración. Ver el "Pre-migration checklist" arriba.
+
 #### 🔴 Crítico — Webhook `topic=merchant_order` no soportado (2026-06-11)
 
 **Síntoma** (Vercel log 2026-06-11 15:24:25):
