@@ -210,7 +210,7 @@ MP redirige a back_urls.success → /pedido/[orderId]
 
 ### ✅ Fase 3.5 — Pago por transferencia + métodos de envío
 
-> **Cerrado en código 2026-06-29.** Bloqueado parcialmente por bug 3.5 (emails a clientes reales no salen hasta verificar dominio en Resend). El resto del flow funciona end-to-end.
+> **Cerrado en código 2026-06-29.** Migración 002 aplicada retroactivamente 2026-06-30 (ver bug crítico arriba). Bloqueado parcialmente por bug 3.5 (emails a clientes reales no salen hasta verificar dominio en Resend). El resto del flow funciona end-to-end.
 
 Varios clientes piden pagar por transferencia y mandar el comprobante por WhatsApp. Esta fase agrega el segundo método de pago (junto a MP) y modela los costos de envío que antes se cotizaban a mano.
 
@@ -453,7 +453,7 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 
 ### ✅ Fase 3.7 — Validaciones post-checkout + notificación al admin
 
-> **Cerrado en código 2026-06-30.** Migración 003 modificada (aún pendiente de aplicar en Supabase Dashboard). Bug 3.5 (Resend) sigue bloqueando el email real al admin hasta que se verifique un dominio.
+> **Cerrado en código + DB 2026-06-30.** Migración 003 aplicada (5 columnas: carrier, tracking_number, shipped_at, phone, province). Migración 002 aplicada retroactivamente ese mismo día (ver bug crítico). Bug 3.5 (Resend) sigue bloqueando el email real al admin hasta que se verifique un dominio.
 
 Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 - Teléfono del cliente (crítico para que el carrier coordine la entrega)
@@ -526,6 +526,27 @@ Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 
 > Diagnóstico histórico en `audit/post-compra-2026-06-11.md` (en este mismo repo).
 > Resumen priorizado:
+
+#### 🔴 Crítico — Migración 002 (Fase 3.5) nunca aplicada a la DB de producción (2026-06-30)
+
+**Síntoma:** Al testear Fase 3.7 (commit 41e3a41) en producción, POST `/api/checkout` con `paymentMethod='transfer'` fallaba con `PGRST204: Could not find the 'bank_info_snapshot' column of 'orders' in the schema cache`.
+
+**Causa raíz:** La migración 002 (`scripts/migrations/002_add_payment_and_shipping.sql`) que agrega `payment_method`, `shipping_method`, `shipping_cost`, `bank_info_snapshot`, `transfer_expires_at` **nunca se había corrido** en la DB de producción. El código de Fase 3.5 (commit 8d6a799, 2026-06-29) asumía que las columnas existían pero la DB no las tenía. Cualquier orden de transfer creada entre el commit de Fase 3.5 y la fecha de hoy (2026-06-30) debe haber fallado silenciosamente (o con error 500 que se perdió en logs).
+
+**Fix aplicado 2026-06-30:** correr el SQL de la 002 (idempotente) + `NOTIFY pgrst, 'reload schema'` + esperar 30s. Las columnas de Fase 3.5 ahora existen en producción.
+
+**Lección:** Siempre correr `NOTIFY pgrst, 'reload schema'` después de cualquier migración y verificar con `information_schema.columns` que las columnas/tablas esperadas existen. NO confiar en el mensaje "Success" del SQL Editor — eso solo significa que el SQL corrió sin error de sintaxis, no que la cache de PostgREST está sincronizada con la DB.
+
+**Procedimiento estándar de migraciones (aplica a TODAS las futuras, no solo la 002):**
+1. Abrir Supabase SQL Editor → New query
+2. Pegar el SQL de la migración (de `scripts/migrations/00X_*.sql`)
+3. Run → esperar "Success. No rows returned"
+4. **OBLIGATORIO**: correr `NOTIFY pgrst, 'reload schema';` → Run
+5. **OBLIGATORIO**: esperar 30 segundos (PostgREST tarda en procesar el reload)
+6. **OBLIGATORIO**: verificar con query a `information_schema.columns` que las columnas/tablas esperadas existen
+7. Recién entonces testear en la app
+
+Si te ahorrás el NOTIFY, vas a perder tiempo debuggeando errores "column not found" para columnas que ya están agregadas.
 
 #### 🔴 Crítico — Webhook `topic=merchant_order` no soportado (2026-06-11)
 

@@ -194,8 +194,15 @@ export const POST: APIRoute = async ({ request }) => {
     .single()
 
   if (orderError || !order) {
-    console.error('[checkout] order insert failed', orderError)
-    return new Response(JSON.stringify({ error: 'No se pudo crear la orden' }), {
+    console.error('[checkout] order insert failed', {
+      error: orderError,
+      message: orderError?.message,
+      code: orderError?.code,
+      details: orderError?.details,
+      hint: orderError?.hint
+    })
+    const debugMessage = orderError?.message || 'No se pudo crear la orden'
+    return new Response(JSON.stringify({ error: debugMessage }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
