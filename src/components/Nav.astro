@@ -7,7 +7,21 @@ import MobileMenu from './MobileMenu.tsx';
 const pathname = Astro.url.pathname;
 const isCurrent = (href: string) => {
   if (href === '/') return pathname === '/';
-  return pathname.startsWith(href.split('?')[0]);
+
+  const [pathWithHash, query] = href.split('?');
+  const [path] = pathWithHash.split('#');
+
+  if (!pathname.startsWith(path)) return false;
+
+  if (query) {
+    const linkParams = new URLSearchParams(query);
+    const currentParams = Astro.url.searchParams;
+    for (const [key, value] of linkParams) {
+      if (currentParams.get(key) !== value) return false;
+    }
+  }
+
+  return true;
 };
 
 const links = [
