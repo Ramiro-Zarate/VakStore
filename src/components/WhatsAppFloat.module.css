@@ -2,7 +2,7 @@
   position: fixed;
   bottom: var(--space-5);
   right: var(--space-5);
-  z-index: var(--z-raised);
+  z-index: 200;
   display: inline-flex;
   align-items: center;
   justify-content: center;
