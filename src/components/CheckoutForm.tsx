@@ -422,6 +422,22 @@ export default function CheckoutForm() {
                 </div>
               </label>
             </div>
+
+            {form.paymentMethod === 'transfer' && (
+              <div className={styles.reminderCard} role="status">
+                <span className={styles.reminderIcon} aria-hidden="true">
+                  <Icon size={16}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </Icon>
+                </span>
+                <p className={styles.reminderText}>
+                  Después de transferir, mandá el comprobante por WhatsApp para
+                  confirmar tu pedido. Tenés 72hs para hacerlo o se cancela automáticamente.
+                </p>
+              </div>
+            )}
           </section>
 
           <button
