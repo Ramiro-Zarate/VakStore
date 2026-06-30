@@ -372,53 +372,128 @@
   padding: var(--space-7) var(--space-4);
 }
 
-.transferCard {
+.statusHero {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  margin-top: var(--space-6);
-  padding: var(--space-6);
-  background-color: var(--color-accent-soft);
-  border: 1px solid var(--color-accent);
+  margin-bottom: var(--space-5);
+  padding: var(--space-5);
   border-radius: var(--radius-md);
 }
 
-.transferTitle {
+.statusHeroTransfer {
+  background-color: rgba(34, 197, 94, 0.08);
+  border: 1px solid #22c55e;
+}
+
+.statusHeroPending {
+  background-color: rgba(245, 158, 11, 0.08);
+  border: 1px solid #f59e0b;
+}
+
+.statusHeroPaid {
+  background-color: var(--color-success-soft);
+  border: 1px solid var(--color-success);
+}
+
+.statusHeroProcessing {
+  background-color: var(--color-info-soft);
+  border: 1px solid var(--color-info);
+}
+
+.statusHeroShipped {
+  background-color: var(--color-accent-soft);
+  border: 1px solid var(--color-accent);
+}
+
+.statusHeroDelivered {
+  background-color: var(--color-success-soft);
+  border: 1px solid var(--color-success);
+}
+
+.statusHeroCancelled {
+  background-color: var(--color-error-soft);
+  border: 1px solid var(--color-error);
+}
+
+.statusHeroHeader {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.statusHeroIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.statusHeroTransfer .statusHeroIcon {
+  color: #22c55e;
+}
+
+.statusHeroPending .statusHeroIcon {
+  color: #f59e0b;
+}
+
+.statusHeroPaid .statusHeroIcon,
+.statusHeroDelivered .statusHeroIcon {
+  color: var(--color-success);
+}
+
+.statusHeroProcessing .statusHeroIcon {
+  color: var(--color-info);
+}
+
+.statusHeroShipped .statusHeroIcon {
+  color: var(--color-accent);
+}
+
+.statusHeroCancelled .statusHeroIcon {
+  color: var(--color-error);
+}
+
+.statusHeroContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.statusHeroTitle {
   font-family: var(--font-display);
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wider);
   color: var(--color-text-primary);
+  margin: 0;
+  line-height: var(--leading-snug);
+}
+
+.statusHeroDescription {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
   margin: 0;
 }
 
-.transferList {
+.statusHeroDetails {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   margin: 0;
-  padding: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid rgba(34, 197, 94, 0.3);
+  border-bottom: 1px solid rgba(34, 197, 94, 0.3);
 }
 
-.transferRow {
+.statusHeroDetailRow {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: var(--space-3);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--color-border);
   margin: 0;
 }
 
-.transferRow:last-child {
-  border-bottom: none;
-}
-
-.transferRow dt {
+.statusHeroDetailRow dt {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;
@@ -427,7 +502,7 @@
   margin: 0;
 }
 
-.transferRow dd {
+.statusHeroDetailRow dd {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
@@ -437,26 +512,19 @@
   word-break: break-all;
 }
 
-.transferRowAmount {
+.statusHeroDetailAmount {
   margin-top: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 2px solid var(--color-accent);
+  padding-top: var(--space-2);
+  border-top: 1px solid rgba(34, 197, 94, 0.3);
 }
 
-.transferRowAmount dd {
+.statusHeroDetailAmount dd {
   font-family: var(--font-display);
   font-size: var(--text-xl);
-  color: var(--color-accent);
+  color: #16a34a;
 }
 
-.transferHint {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  line-height: var(--leading-relaxed);
-  margin: 0;
-}
-
-.transferCta {
+.statusHeroCta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -476,12 +544,12 @@
   transition: background-color var(--duration-fast) var(--ease-out);
 }
 
-.transferCta:hover {
+.statusHeroCta:hover {
   background-color: #1ebe57;
   border-color: #1ebe57;
 }
 
-.transferExpiry {
+.statusHeroExpiry {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;
