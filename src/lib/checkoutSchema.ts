@@ -19,8 +19,7 @@ export const checkoutSchema = z.object({
   items: z.array(checkoutItemSchema).min(1).max(50),
   customer: checkoutCustomerSchema,
   paymentMethod: paymentMethodSchema.default('mercadopago'),
-  shippingMethod: z.string().min(1).max(50),
-  shippingCost: z.number().nonnegative()
+  shippingMethod: z.string().min(1).max(50)
 })
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>

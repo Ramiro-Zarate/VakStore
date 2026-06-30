@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Field, Input, Skeleton, Icon } from './Primitives'
+import { getCarrier, getTrackingUrl } from '../lib/carriers'
 import styles from './OrderTracking.module.css'
 
 interface OrderItem {
@@ -37,6 +38,9 @@ interface Order {
   payment_intent_id: string | null
   transfer_expires_at: string | null
   bank_info_snapshot: BankInfo | null
+  carrier: string | null
+  tracking_number: string | null
+  shipped_at: string | null
   order_items?: OrderItem[]
 }
 
@@ -290,6 +294,62 @@ export default function OrderTracking() {
             </div>
           )}
 
+          {order.tracking_number && order.carrier && (
+            <div className={styles.trackingCard}>
+              <h2 className={styles.trackingTitle}>
+                <Icon size={14} aria-hidden="true">
+                  <rect x="1" y="3" width="15" height="13" />
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                  <circle cx="5.5" cy="18.5" r="2.5" />
+                  <circle cx="18.5" cy="18.5" r="2.5" />
+                </Icon>
+                Envío en curso
+              </h2>
+              <dl className={styles.trackingList}>
+                <div className={styles.trackingRow}>
+                  <dt>Carrier</dt>
+                  <dd>{getCarrier(order.carrier)?.name ?? order.carrier}</dd>
+                </div>
+                <div className={styles.trackingRow}>
+                  <dt>Número de seguimiento</dt>
+                  <dd>{order.tracking_number}</dd>
+                </div>
+                {order.shipped_at && (
+                  <div className={styles.trackingRow}>
+                    <dt>Despachado</dt>
+                    <dd>
+                      {new Date(order.shipped_at).toLocaleDateString('es-AR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {(() => {
+                const url = getTrackingUrl(order.carrier, order.tracking_number)
+                return url ? (
+                  <a
+                    className={styles.trackingLink}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Rastrear en {getCarrier(order.carrier)?.name ?? 'el carrier'}
+                    <Icon size={14} aria-hidden="true">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </Icon>
+                  </a>
+                ) : null
+              })()}
+            </div>
+          )}
+
           <div className={styles.itemsSection}>
             <h2 className={styles.itemsTitle}>Productos</h2>
             <ul className={styles.itemsList}>
@@ -325,6 +385,24 @@ export default function OrderTracking() {
               ${order.total_amount.toLocaleString('es-AR')}
             </span>
           </div>
+
+          {['paid', 'processing', 'shipped', 'delivered'].includes(order.status) && order.shipping_address && (
+            <div className={styles.printRow}>
+              <a
+                className={styles.printButton}
+                href={`/pedido/${order.id}/etiqueta?email=${encodeURIComponent(email)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Icon size={14} aria-hidden="true">
+                  <polyline points="6 9 6 2 18 2 18 9" />
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <rect x="6" y="14" width="12" height="8" />
+                </Icon>
+                Imprimir etiqueta de envío
+              </a>
+            </div>
+          )}
 
           {order.status === 'awaiting_payment' && order.payment_method === 'transfer' && order.bank_info_snapshot && (
             <div className={styles.transferCard}>

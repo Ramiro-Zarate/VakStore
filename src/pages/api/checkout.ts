@@ -7,6 +7,7 @@ import { checkoutSchema } from '../../lib/checkoutSchema'
 import { processApprovedPayment } from '../../lib/orderProcessing'
 import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
 import { bankInfo, whatsappNumber, transferExpiryHours, TRANSFER_DISCOUNT } from '../../lib/bankInfo'
+import { getZoneById, getZoneCost } from '../../lib/shippingZones'
 import { sendTransferInstructionsEmail } from '../../lib/email'
 import type { OrdersUpdate } from '../../lib/db'
 
@@ -48,7 +49,17 @@ export const POST: APIRoute = async ({ request }) => {
     )
   }
 
-  const { items, customer, paymentMethod, shippingMethod, shippingCost } = parsed.data
+  const { items, customer, paymentMethod, shippingMethod } = parsed.data
+
+  const zone = getZoneById(shippingMethod)
+  if (!zone) {
+    return new Response(
+      JSON.stringify({ error: `Zona de envío inválida: ${shippingMethod}` }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  const shippingCost = getZoneCost(shippingMethod)
+
   const variantIds = items.map(i => i.variantId)
 
   const { data: variants, error: variantsError } = await getSupabaseAdmin()

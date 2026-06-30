@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCartStore } from '../hooks/useCartStore'
 import { Field, Input, Icon } from './Primitives'
 import { TRANSFER_DISCOUNT } from '../lib/bankInfo'
+import { DEFAULT_ZONE, type ShippingZone } from '../lib/shippingZones'
 import styles from './CheckoutForm.module.css'
 
 interface FormState {
@@ -11,12 +12,6 @@ interface FormState {
   city: string
   postalCode: string
   paymentMethod: 'mercadopago' | 'transfer'
-}
-
-const SHIPPING_METHOD = {
-  id: 'nacional',
-  name: 'Envío a todo el país',
-  cost: 5000
 }
 
 const EMPTY_FORM: FormState = {
@@ -30,6 +25,11 @@ const EMPTY_FORM: FormState = {
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
+interface QuoteResponse {
+  detected: { id: string; name: string; cost: number; eta: string }
+  options: ShippingZone[]
+}
+
 export default function CheckoutForm() {
   const { items, getCartTotal, clearCart } = useCartStore()
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -37,12 +37,43 @@ export default function CheckoutForm() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
 
+  const [shippingZone, setShippingZone] = useState<ShippingZone>(DEFAULT_ZONE)
+  const [shippingFallback, setShippingFallback] = useState(true)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('error') === 'payment_failed') {
       setSubmitError('El pago no se completó. Probá nuevamente.')
     }
   }, [])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const cp = form.postalCode.trim()
+    const digits = cp.replace(/\D/g, '')
+    if (digits.length < 4) {
+      setShippingZone(DEFAULT_ZONE)
+      setShippingFallback(true)
+      return
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/shipping/quote?cp=${encodeURIComponent(cp)}`)
+        if (!res.ok) throw new Error('quote failed')
+        const data = (await res.json()) as QuoteResponse
+        const detected = data.options.find(o => o.id === data.detected.id) ?? DEFAULT_ZONE
+        setShippingZone(detected)
+        setShippingFallback(detected.id === DEFAULT_ZONE.id)
+      } catch {
+        setShippingZone(DEFAULT_ZONE)
+        setShippingFallback(true)
+      }
+    }, 400)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [form.postalCode])
 
   if (items.length === 0) {
     return (
@@ -54,13 +85,13 @@ export default function CheckoutForm() {
     )
   }
 
-  const total = getCartTotal() + SHIPPING_METHOD.cost
   const subtotal = getCartTotal()
-  const shipping = SHIPPING_METHOD.cost
+  const shipping = shippingZone.cost
   const isTransfer = form.paymentMethod === 'transfer'
   const transferDiscount = isTransfer ? subtotal * TRANSFER_DISCOUNT : 0
+  const totalMp = subtotal + shipping
   const totalTransfer = subtotal - transferDiscount + shipping
-  const activeTotal = isTransfer ? totalTransfer : total
+  const activeTotal = isTransfer ? totalTransfer : totalMp
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -103,8 +134,7 @@ export default function CheckoutForm() {
           })),
           customer: form,
           paymentMethod: form.paymentMethod,
-          shippingMethod: SHIPPING_METHOD.id,
-          shippingCost: SHIPPING_METHOD.cost
+          shippingMethod: shippingZone.id
         })
       })
 
@@ -223,6 +253,7 @@ export default function CheckoutForm() {
                 label="Código postal"
                 required
                 error={fieldErrors.postalCode}
+                hint={!shippingFallback ? `Detectamos zona: ${shippingZone.name}` : undefined}
               >
                 <Input
                   type="text"
@@ -242,25 +273,29 @@ export default function CheckoutForm() {
               <span className={styles.sectionNumber} aria-hidden="true">3</span>
               <h2 className={styles.sectionTitle}>Método de envío</h2>
             </div>
-            <div className={styles.radioGroup} role="radiogroup" aria-label="Método de envío">
-              <label className={`${styles.radioOption} ${styles.radioOptionActive}`}>
-                <div className={styles.radioOptionLeft}>
-                  <input
-                    type="radio"
-                    name="shippingMethod"
-                    value={SHIPPING_METHOD.id}
-                    checked
-                    readOnly
-                    className={styles.radioInput}
-                    aria-label={`${SHIPPING_METHOD.name}, $${SHIPPING_METHOD.cost.toLocaleString('es-AR')}`}
-                  />
-                  <span className={styles.radioLabel}>
-                    <span className={styles.radioTitle}>{SHIPPING_METHOD.name}</span>
-                    <span className={styles.radioHint}>48-72h hábiles</span>
-                  </span>
-                </div>
-                <span className={styles.radioPrice}>${SHIPPING_METHOD.cost.toLocaleString('es-AR')}</span>
-              </label>
+            <div className={styles.shippingCard}>
+              <div className={styles.shippingCardHeader}>
+                <span className={styles.shippingCardName}>{shippingZone.name}</span>
+                <span className={styles.shippingCardPrice}>
+                  ${shipping.toLocaleString('es-AR')}
+                </span>
+              </div>
+              <p className={styles.shippingCardMeta}>
+                <span>{shippingZone.eta}</span>
+                <span className={styles.shippingCardSep} aria-hidden="true">·</span>
+                <span>
+                  {shippingFallback
+                    ? 'Tarifa estándar'
+                    : shippingZone.description}
+                </span>
+              </p>
+              {shippingFallback && (
+                <p className={styles.shippingCardHint}>
+                  {form.postalCode.trim().replace(/\D/g, '').length < 4
+                    ? 'Ingresá tu código postal para ver el costo exacto.'
+                    : 'No pudimos identificar tu zona. Usamos tarifa estándar.'}
+                </p>
+              )}
             </div>
           </section>
 
@@ -370,7 +405,7 @@ export default function CheckoutForm() {
             <span>${subtotal.toLocaleString('es-AR')}</span>
           </div>
           <div className={styles.summaryBreakdownRow}>
-            <span>Envío</span>
+            <span>Envío · {shippingZone.name}</span>
             <span>${shipping.toLocaleString('es-AR')}</span>
           </div>
           {isTransfer && (

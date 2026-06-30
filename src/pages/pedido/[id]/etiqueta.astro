@@ -1,0 +1,324 @@
+---
+export const prerender = false
+
+import Layout from '../../../layouts/Layout.astro'
+import { getSupabaseAdmin } from '../../../lib/supabaseAdmin'
+import { timingSafeEqual } from 'node:crypto'
+
+const { id } = Astro.params
+const email = (Astro.url.searchParams.get('email') ?? '').trim()
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+if (!id || !UUID_REGEX.test(id) || !email || !EMAIL_REGEX.test(email)) {
+  return Astro.redirect(`/pedido/${id ?? ''}?error=invalid_request`)
+}
+
+const { data: order, error } = await getSupabaseAdmin()
+  .from('orders')
+  .select(`
+    id,
+    status,
+    total_amount,
+    created_at,
+    shipping_address,
+    shipping_city,
+    shipping_postal_code,
+    customer_name,
+    email,
+    order_items (
+      id,
+      quantity,
+      unit_price,
+      product_variants (
+        size,
+        version,
+        products (name)
+      )
+    )
+  `)
+  .eq('id', id)
+  .maybeSingle()
+
+  if (error || !order) {
+    return new Response('Pedido no encontrado', { status: 404 })
+  }
+
+  type ItemRow = {
+    id: string
+    quantity: number
+    unit_price: number
+    product_variants?: { size: string; version: string; products?: { name: string } | null } | null
+  }
+
+  const typedOrder = order as unknown as {
+    id: string
+    status: string
+    total_amount: number
+    created_at: string
+    shipping_address: string | null
+    shipping_city: string | null
+    shipping_postal_code: string | null
+    customer_name: string | null
+    email: string | null
+    order_items: ItemRow[] | null
+  }
+
+  const orderEmail = typedOrder.email ?? ''
+const ab = Buffer.from(orderEmail.toLowerCase().trim())
+const bb = Buffer.from(email.toLowerCase().trim())
+if (ab.length === 0 || ab.length !== bb.length || !timingSafeEqual(ab, bb)) {
+  return Astro.redirect(`/pedido/${id}?error=email_mismatch`)
+}
+
+const items = (typedOrder.order_items ?? []) as ItemRow[]
+const shortId = typedOrder.id.slice(0, 8).toUpperCase()
+const orderDate = new Date(typedOrder.created_at).toLocaleDateString('es-AR', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric'
+})
+---
+
+<Layout title="Etiqueta de envío | Vak Store" noindex>
+  <div class="etiqueta-page">
+    <div class="etiqueta-actions no-print">
+      <a href={`/pedido/${id}`} class="etiqueta-back">← Volver al pedido</a>
+      <button type="button" class="etiqueta-print" onclick="window.print()">
+        Imprimir etiqueta
+      </button>
+    </div>
+
+    <div class="etiqueta">
+      <header class="etiqueta-header">
+        <div class="etiqueta-from">
+          <p class="etiqueta-label">De</p>
+          <p class="etiqueta-name">VAK STORE</p>
+        </div>
+        <div class="etiqueta-id">
+          <p class="etiqueta-id-label">Pedido</p>
+          <p class="etiqueta-id-value">#{shortId}</p>
+          <p class="etiqueta-id-date">{orderDate}</p>
+        </div>
+      </header>
+
+      <section class="etiqueta-to">
+        <p class="etiqueta-label">Para</p>
+        <p class="etiqueta-name">{typedOrder.customer_name ?? '—'}</p>
+        <p class="etiqueta-addr">{typedOrder.shipping_address ?? '—'}</p>
+        <p class="etiqueta-addr">
+          {typedOrder.shipping_city ?? '—'}
+        </p>
+        <p class="etiqueta-cp">CP: {typedOrder.shipping_postal_code ?? '—'}</p>
+      </section>
+
+      <section class="etiqueta-items">
+        <p class="etiqueta-label">Contenido</p>
+        <ul>
+          {items.map(item => (
+            <li>
+              {item.quantity}× {item.product_variants?.products?.name ?? 'Producto'} · {item.product_variants?.version ?? ''} · {item.product_variants?.size ?? ''}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <footer class="etiqueta-footer">
+        <span>Total: ${typedOrder.total_amount.toLocaleString('es-AR')}</span>
+        <span>{items.length} ítem{items.length === 1 ? '' : 's'}</span>
+      </footer>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .etiqueta-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--space-5);
+  }
+
+  .etiqueta-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-5);
+    gap: var(--space-3);
+  }
+
+  .etiqueta-back,
+  .etiqueta-print {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+
+  .etiqueta-back {
+    color: var(--color-text-secondary);
+    background: transparent;
+    border-color: var(--color-border);
+  }
+
+  .etiqueta-print {
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    border-color: var(--color-accent);
+  }
+
+  .etiqueta {
+    background: #ffffff;
+    color: #000000;
+    padding: var(--space-5);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    max-width: 380px;
+    margin: 0 auto;
+  }
+
+  .etiqueta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .etiqueta-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #666;
+    margin: 0 0 2px;
+  }
+
+  .etiqueta-name {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0;
+    color: #000;
+  }
+
+  .etiqueta-to {
+    margin-bottom: var(--space-3);
+  }
+
+  .etiqueta-addr {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #333;
+  }
+
+  .etiqueta-cp {
+    font-size: 14px;
+    font-weight: 700;
+    margin: var(--space-1) 0 0;
+    color: #000;
+    font-family: var(--font-mono);
+  }
+
+  .etiqueta-id {
+    text-align: right;
+  }
+
+  .etiqueta-id-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #666;
+    margin: 0;
+  }
+
+  .etiqueta-id-value {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    margin: 0;
+  }
+
+  .etiqueta-id-date {
+    font-size: 9px;
+    color: #666;
+    margin: 0;
+  }
+
+  .etiqueta-items {
+    border-top: 1px solid #ccc;
+    padding-top: var(--space-2);
+    margin-top: var(--space-2);
+  }
+
+  .etiqueta-items ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .etiqueta-items li {
+    font-size: 10px;
+    color: #333;
+    line-height: 1.4;
+    padding: 1px 0;
+  }
+
+  .etiqueta-footer {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #ccc;
+    padding-top: var(--space-2);
+    margin-top: var(--space-3);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  @media print {
+    @page {
+      size: 100mm 150mm;
+      margin: 4mm;
+    }
+
+    :global(body) {
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+
+    :global(header),
+    :global(footer),
+    :global(.skip-link),
+    :global(nav) {
+      display: none !important;
+    }
+
+    .no-print {
+      display: none !important;
+    }
+
+    .etiqueta-page {
+      padding: 0;
+      max-width: 100%;
+      margin: 0;
+    }
+
+    .etiqueta {
+      border: none;
+      padding: 0;
+      max-width: 100%;
+    }
+  }
+</style>
