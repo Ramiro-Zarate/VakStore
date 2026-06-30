@@ -198,13 +198,20 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] Eliminar import muerto de `node:crypto` en `src/pages/api/webhooks/mercadopago.ts`
 - [ ] Validar flow E2E con tarjeta sandbox APRO (`MP_MOCK_MODE=false` + token TEST) — bloqueado por cuenta MP al 50% de onboarding
 
-### ⏳ Fase 3 — Pendientes activos (resumen)
+### ✅ Fase 3 — Cerrada
 
 > Todos los items originales de Fase 3 fueron cerrados. Ver arriba los checkmarks
-> de cada uno y los commits asociados. Queda **una sola tarea pendiente** que es
-> la única activa del proyecto:
+> de cada uno y los commits asociados.
 
-- [ ] **🟢 UX — Banner de cookies + página `/privacidad`** — cartel no-bloqueante en el bottom, persistir elección en localStorage, página con términos y política de privacidad. Ley 25.326 no obliga en AR pero es buena práctica + prepara para sumar analytics cuando haga falta.
+Última tarea pendiente cerrada 2026-06-30:
+
+- [x] **🟢 UX — Banner de cookies + página `/privacidad`** — cartel no-bloqueante en el bottom, persistir elección en localStorage, página con términos y política de privacidad. Ley 25.326 no obliga en AR pero es buena práctica + prepara para sumar analytics cuando haga falta.
+  - Banner: `src/components/CookieBanner.tsx` (React) + `.module.css`
+  - Persistencia: localStorage con keys `cookie-consent`, `cookie-consent-version`, `cookie-consent-date`
+  - Versión de política: hardcoded `POLICY_VERSION = '1.0'`. Si cambia, el banner reaparece pidiendo re-consentimiento
+  - Página: `src/pages/privacidad.astro` con 9 secciones (introducción, datos, uso, terceros, cookies, derechos Ley 25.326, devoluciones 10 días, cambios, contacto)
+  - Integración: `src/layouts/Layout.astro` con `<CookieBanner client:only="react" />`
+  - Placeholders en la página: nombre/razón social, CUIT, domicilio, número de WhatsApp. Editar antes de producción real.
 
 **Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
 
