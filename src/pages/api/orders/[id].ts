@@ -81,6 +81,8 @@ export const POST: APIRoute = async ({ params, request }) => {
       carrier,
       tracking_number,
       shipped_at,
+      phone,
+      province,
       order_items (
         id,
         product_variant_id,
@@ -115,6 +117,8 @@ export const POST: APIRoute = async ({ params, request }) => {
     carrier: string | null
     tracking_number: string | null
     shipped_at: string | null
+    phone: string | null
+    province: string | null
     order_items?: Array<{
       id: string
       product_variant_id: string

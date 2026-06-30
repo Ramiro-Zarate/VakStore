@@ -8,7 +8,7 @@ import { processApprovedPayment } from '../../lib/orderProcessing'
 import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
 import { bankInfo, whatsappNumber, transferExpiryHours, TRANSFER_DISCOUNT } from '../../lib/bankInfo'
 import { getZoneById, getZoneCost } from '../../lib/shippingZones'
-import { sendTransferInstructionsEmail } from '../../lib/email'
+import { sendTransferInstructionsEmail, sendAdminOrderNotification } from '../../lib/email'
 import type { OrdersUpdate } from '../../lib/db'
 
 export const prerender = false
@@ -178,7 +178,9 @@ export const POST: APIRoute = async ({ request }) => {
     shipping_postal_code: customer.postalCode,
     payment_method: paymentMethod,
     shipping_method: shippingMethod,
-    shipping_cost: shippingCost
+    shipping_cost: shippingCost,
+    phone: customer.phone,
+    province: customer.province
   }
   if (isTransfer) {
     orderInsert.bank_info_snapshot = bankInfo
@@ -213,6 +215,28 @@ export const POST: APIRoute = async ({ request }) => {
       headers: { 'Content-Type': 'application/json' }
     })
   }
+
+  void sendAdminOrderNotification({
+    orderId,
+    customerName: customer.name,
+    customerEmail: customer.email,
+    customerPhone: customer.phone,
+    totalAmount: totalFinal,
+    paymentMethod,
+    items: orderItems.map(it => {
+      const variant = variantsById.get(it.product_variant_id)
+      return {
+        name: variant?.product?.name ?? 'Producto',
+        version: variant?.version ?? '',
+        size: variant?.size ?? '',
+        quantity: it.quantity
+      }
+    }),
+    shippingAddress: customer.address,
+    shippingCity: customer.city,
+    shippingProvince: customer.province,
+    shippingPostalCode: customer.postalCode
+  })
 
   if (isTransfer) {
     const whatsappDigits = whatsappNumber.replace(/[^\d]/g, '')

@@ -13,7 +13,9 @@
 ALTER TABLE orders
   ADD COLUMN IF NOT EXISTS carrier text,
   ADD COLUMN IF NOT EXISTS tracking_number text,
-  ADD COLUMN IF NOT EXISTS shipped_at timestamptz;
+  ADD COLUMN IF NOT EXISTS shipped_at timestamptz,
+  ADD COLUMN IF NOT EXISTS phone text,
+  ADD COLUMN IF NOT EXISTS province text;
 
 -- Constraint para carrier (solo valores conocidos)
 DO $$
@@ -37,7 +39,15 @@ END$$;
 --   String libre. Si está NULL, el cliente todavía no ve tracking.
 -- • shipped_at: timestamp del despacho. Se usa para mostrar el badge
 --   "Enviado" en OrderTracking.
--- • Las 3 columnas son opcionales (NULL permitido) para no romper
---   órdenes existentes o futuras que aún no se despacharon.
+-- • phone: teléfono de contacto del cliente. Requerido en el form de
+--   checkout (validado en Zod), pero NULL permitido en DB para
+--   órdenes existentes pre-migración. Los carriers (Andreani, Correo
+--   Argentino) lo usan para coordinar la entrega.
+-- • province: jurisdicción de envío (1 de las 24 provincias + CABA).
+--   Pre-seleccionada en el form desde el CP, pero siempre editable
+--   por el cliente. NULL permitido para órdenes pre-migración.
+-- • Las 5 columnas son opcionales (NULL permitido) para no romper
+--   órdenes existentes. Las nuevas órdenes pasan validación Zod que
+--   exige phone y province no vacíos.
 -- • CHECK permite carrier NULL → no rompe órdenes pre-migración.
 -- =============================================================

@@ -59,6 +59,8 @@ export interface Order {
   carrier: 'andreani' | 'correo_argentino' | null
   tracking_number: string | null
   shipped_at: string | null
+  phone: string | null
+  province: string | null
   created_at: string
   updated_at: string
 }

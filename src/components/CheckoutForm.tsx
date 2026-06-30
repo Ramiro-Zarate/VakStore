@@ -1,25 +1,35 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCartStore } from '../hooks/useCartStore'
-import { Field, Input, Icon } from './Primitives'
+import { Field, Input, Select, Icon } from './Primitives'
 import { TRANSFER_DISCOUNT } from '../lib/bankInfo'
 import { DEFAULT_ZONE, type ShippingZone } from '../lib/shippingZones'
+import {
+  PROVINCES,
+  getProvinceFromCP,
+  detectProvinceFromCity,
+  isCPMismatch
+} from '../lib/provinces'
 import styles from './CheckoutForm.module.css'
 
 interface FormState {
   email: string
   name: string
+  phone: string
   address: string
   city: string
   postalCode: string
+  province: string
   paymentMethod: 'mercadopago' | 'transfer'
 }
 
 const EMPTY_FORM: FormState = {
   email: '',
   name: '',
+  phone: '',
   address: '',
   city: '',
   postalCode: '',
+  province: '',
   paymentMethod: 'mercadopago'
 }
 
@@ -30,6 +40,8 @@ interface QuoteResponse {
   options: ShippingZone[]
 }
 
+const PROVINCE_OPTIONS = PROVINCES.map(p => ({ value: p.id, label: p.name }))
+
 export default function CheckoutForm() {
   const { items, getCartTotal, clearCart } = useCartStore()
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -39,6 +51,7 @@ export default function CheckoutForm() {
 
   const [shippingZone, setShippingZone] = useState<ShippingZone>(DEFAULT_ZONE)
   const [shippingFallback, setShippingFallback] = useState(true)
+  const [cpMismatch, setCpMismatch] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -75,6 +88,21 @@ export default function CheckoutForm() {
     }
   }, [form.postalCode])
 
+  useEffect(() => {
+    const cp = form.postalCode.trim()
+    if (cp.replace(/\D/g, '').length >= 4) {
+      const detected = getProvinceFromCP(cp)
+      if (detected && !form.province) {
+        setForm(prev => ({ ...prev, province: detected.id }))
+      }
+    }
+    if (form.city.trim() && cp.replace(/\D/g, '').length >= 4) {
+      setCpMismatch(isCPMismatch(cp, form.city))
+    } else {
+      setCpMismatch(false)
+    }
+  }, [form.postalCode, form.city, form.province])
+
   if (items.length === 0) {
     return (
       <div className={styles.empty}>
@@ -92,6 +120,8 @@ export default function CheckoutForm() {
   const totalMp = subtotal + shipping
   const totalTransfer = subtotal - transferDiscount + shipping
   const activeTotal = isTransfer ? totalTransfer : totalMp
+  const cityProvince = detectProvinceFromCity(form.city)
+  const cpProvince = getProvinceFromCP(form.postalCode)
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -105,9 +135,12 @@ export default function CheckoutForm() {
     if (!form.email.trim()) errors.email = 'Ingresá tu email'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Email inválido'
     if (!form.name.trim()) errors.name = 'Ingresá tu nombre'
+    if (!form.phone.trim()) errors.phone = 'Ingresá tu teléfono'
+    else if (!/^[\d\s+\-()]{8,20}$/.test(form.phone.trim())) errors.phone = 'Teléfono inválido'
     if (!form.address.trim()) errors.address = 'Ingresá tu dirección'
     if (!form.city.trim()) errors.city = 'Ingresá tu ciudad'
     if (!form.postalCode.trim()) errors.postalCode = 'Ingresá tu código postal'
+    if (!form.province) errors.province = 'Elegé tu provincia'
     return errors
   }
 
@@ -213,6 +246,22 @@ export default function CheckoutForm() {
                 invalid={!!fieldErrors.name}
               />
             </Field>
+            <Field
+              label="Teléfono"
+              required
+              error={fieldErrors.phone}
+              hint="Para que el courier coordine la entrega"
+            >
+              <Input
+                type="tel"
+                inputMode="tel"
+                value={form.phone}
+                onChange={e => handleChange('phone', e.target.value)}
+                placeholder="+54 9 11 1234-5678"
+                autoComplete="tel"
+                invalid={!!fieldErrors.phone}
+              />
+            </Field>
           </section>
 
           <section className={styles.section}>
@@ -266,6 +315,39 @@ export default function CheckoutForm() {
                 />
               </Field>
             </div>
+            <Field
+              label="Provincia"
+              required
+              error={fieldErrors.province}
+              hint={cpProvince ? `Detectada desde tu CP: ${cpProvince.name}` : 'Elegé la provincia de destino'}
+            >
+              <Select
+                value={form.province}
+                onChange={e => handleChange('province', e.target.value)}
+                options={PROVINCE_OPTIONS}
+                placeholder="Elegé tu provincia"
+                invalid={!!fieldErrors.province}
+                autoComplete="address-level1"
+              />
+            </Field>
+
+            {cpMismatch && cityProvince && cpProvince && (
+              <div className={styles.warningCard} role="status">
+                <span className={styles.warningIcon} aria-hidden="true">
+                  <Icon size={16}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </Icon>
+                </span>
+                <p className={styles.warningText}>
+                  Tu código postal (<strong>{form.postalCode.toUpperCase()}</strong>) corresponde a{' '}
+                  <strong>{cpProvince.name}</strong>, pero tu ciudad dice{' '}
+                  <strong>{form.city}</strong> (que está en {cityProvince.name}). ¿Es correcto?
+                  Si no, corregí la ciudad o el código postal.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className={styles.section}>

@@ -38,6 +38,7 @@ Node: `>=22.12.0`.
 | `PUBLIC_WHATSAPP_NUMBER` | cliente + server | Número de WhatsApp formato E.164 (ej. `+5491100000000`). Usado para el botón flotante y el CTA de comprobante. | Requerida para Fase 3.5 |
 | `TRANSFER_EXPIRY_HOURS` | server | Horas hasta auto-cancel de una transfer impaga | Opcional, default `72` |
 | `CRON_SECRET` | **server only** | Bearer token para `PUT /api/cron/cancel-expired-transfers` | Requerida para que Vercel Cron llame al endpoint. Generar random (ej. `openssl rand -hex 32`). Setear en Vercel (3 envs). |
+| `ADMIN_EMAIL` | **server only** | Email destinatario de las notificaciones de nuevas órdenes (Fase 3.7) | Opcional. Si no está seteada, la notif se skipea con warning en consola. Setear en Vercel (3 envs) cuando se quiera activar. |
 
 > **Nota**: Sentry (`@sentry/astro`) y Upstash (`@upstash/ratelimit` + `@upstash/redis`) están instalados en `package.json` y referenciados en código, pero **no se usan activamente** (no se crearán cuentas externas). El rate limit degrada a "deja pasar" si no hay config. Sentry no captura nada.
 
@@ -197,14 +198,12 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] Eliminar import muerto de `node:crypto` en `src/pages/api/webhooks/mercadopago.ts`
 - [ ] Validar flow E2E con tarjeta sandbox APRO (`MP_MOCK_MODE=false` + token TEST) — bloqueado por cuenta MP al 50% de onboarding
 
-### ⏳ Fase 3 — Pendientes activos
+### ⏳ Fase 3 — Pendientes activos (resumen)
 
-- [x] Refund automático si oversell (vía `PaymentRefund.total({ payment_id })` + email cancelación)
-- [x] **Idempotencia funcional en `processApprovedPayment`**: early-return si la orden ya está en estado terminal (`paid`/`delivered`). Previene doble decrement de stock cuando MP re-envía webhooks `approved` con `dataId` distinto.
-- [x] **Fix webhook `topic=merchant_order`** — manejado en `handleMerchantOrder` (commit 612488d). Idempotencia usa `dataId` real de cada `payment` adentro del `merchant_order`.
-- [x] **Onboarding de MP completo** — `MP_ACCESS_TOKEN` productivo en Vercel, cobros reales validados.
-- [x] **Resolver 500 en `POST /api/orders/[id]`** — fix: `product_variant` → `product_variants` y `product` → `products` en el nested select. PostgREST expone las relaciones en plural por el nombre del FK constraint (hipótesis confirmada). El form de `/pedido` ahora carga el pedido correctamente. Ver §10 para el detalle.
-- [x] **Validar path de oversell con MP real** — validado 2026-06-29 con compra real: refund `3144751258` emitido, orden `cancelled`/`rejected`, logs `[orderProcessing] oversell detected` + `[orderProcessing] refund issued` + `[webhook] oversell detected` confirmados en Vercel. Email de cancelación FALLÓ por bug 3.5 (Resend no verificado). Procedimiento en §10.
+> Todos los items originales de Fase 3 fueron cerrados. Ver arriba los checkmarks
+> de cada uno y los commits asociados. Queda **una sola tarea pendiente** que es
+> la única activa del proyecto:
+
 - [ ] **🟢 UX — Banner de cookies + página `/privacidad`** — cartel no-bloqueante en el bottom, persistir elección en localStorage, página con términos y política de privacidad. Ley 25.326 no obliga en AR pero es buena práctica + prepara para sumar analytics cuando haga falta.
 
 **Deuda técnica conocida:** si `refundPayment()` falla y la webhook de MP reintenta, la tabla `webhook_events` bloquea el reprocesamiento y el refund queda pendiente. Solución actual: log + Sentry para detección. Solución futura: agregar columna `refund_status` en `orders` y mover el chequeo de idempotencia a después del refund.
@@ -230,7 +229,7 @@ Varios clientes piden pagar por transferencia y mandar el comprobante por WhatsA
 - 1 método único: `nacional` / "Envío a todo el país" / $5.000 fijo.
 - El schema (`shipping_methods` + `shipping_cost` por orden) ya soporta múltiples métodos y cálculo por CP/zona. Refinar en iteración futura.
 - `shipping_cost` se suma a `total_amount` y se incluye como línea extra en la `Preference` de MP (afecta lo que cobra MP).
-- La constante `SHIPPING_METHOD` en `src/components/CheckoutForm.tsx` está hardcodeada por ahora. Cuando crezca el catálogo, leer de `/api/shipping` o directamente de Supabase.
+- La constante `SHIPPING_METHOD` en `src/components/CheckoutForm.tsx` está hardcodeada por ahora. Cuando crezca el catálogo, leer de `/api/shipping` o directamente de Supabase.  *(→ resuelto en Fase 3.6 con pricing por zona)*
 
 #### Descuento del 15% en transferencia
 - **Constante**: `TRANSFER_DISCOUNT = 0.15` en `src/lib/bankInfo.ts`.
@@ -369,9 +368,159 @@ Admin corre: npm run confirm-order <orderId>
 #### Diferido a fase futura
 - Panel admin propio para confirmar transfers (ahora Supabase Dashboard + CLI)
 - Endpoint `POST /api/admin/orders/[id]/confirm-transfer` con secret token (reemplaza al CLI script)
-- Múltiples métodos de envío con cálculo por CP/zona
+- Múltiples métodos de envío con cálculo por CP/zona  *(→ resuelto en Fase 3.6)*
 - Notificación al admin cuando entra una transfer nueva (Slack/email)
 - Stock reservation al crear la orden (decrement + release si expira)
+
+### ✅ Fase 3.6 — Envíos por zona + etiqueta + tracking manual
+
+> **Cerrado en código 2026-06-30.** Pendiente: aplicar `scripts/migrations/003_add_tracking.sql` en Supabase Dashboard.
+
+**Decisión clave:** NO se integró EnvioPack. Con <5 envíos/semana y operatoria
+de "llevar a la sucursal del carrier", el fee por envío + complejidad de la API
+no se justificaban. Se optó por un **"EnvioPack casero"**: pricing por zona +
+etiqueta imprimible + tracking manual pegado desde el panel del carrier.
+
+#### Schema (`scripts/migrations/003_add_tracking.sql`, **pendiente de aplicar**)
+- `orders.carrier` text, CHECK (`'andreani'` | `'correo_argentino'`, nullable)
+- `orders.tracking_number` text, nullable
+- `orders.shipped_at` timestamptz, nullable
+
+Las 3 columnas son opcionales (NULL permitido) para no romper órdenes existentes.
+El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
+
+#### Pricing por zona (`src/lib/shippingZones.ts`)
+- 8 zonas hardcoded por rango de CP argentino + fallback `nacional` $5.000:
+  CABA $3.000 · GBA $4.000 · Buenos Aires $5.500 · Centro $6.500 · Litoral $7.000 ·
+  NOA $8.000 · Cuyo $8.500 · Patagonia $11.000
+- `getZoneForCP(cp)` → strip letras, primeros 4 dígitos, match contra rangos
+- Endpoint `GET /api/shipping/quote?cp=...` devuelve `{ detected, options }`
+- Checkout: el **server computa el costo desde el zone id** (no confía en el client). Ver C14.
+- Tabla `shipping_methods` queda sin uso por ahora; se mantiene para futura integración con EnvioPack
+
+#### Etiqueta imprimible (`src/pages/pedido/[id]/etiqueta.astro`)
+- Server-rendered, autenticación id+email en query string (misma que OrderTracking, ver C16/C17)
+- Layout 10×15cm con `@page { size: 100mm 150mm; margin: 4mm }`, CSS `@media print` oculta nav/footer/whatsapp-float
+- Muestra: remitente, destinatario destacado, CP grande, items, total, ID orden
+- Botón "Imprimir" → `window.print()`; botón "Volver al pedido" en pantalla
+- Acceso: botón "Imprimir etiqueta de envío" en OrderTracking cuando `status ∈ {paid, processing, shipped, delivered}`
+
+#### Tracking para el cliente
+- 2 carriers soportados en `src/lib/carriers.ts`: **Andreani**, **Correo Argentino** (sin OCA)
+- `getTrackingUrl(carrierId, nro)` → URL deep-link al tracking del carrier
+- `getCarrier(carrierId)` → metadata para mostrar nombre
+- Flujo admin: Supabase Dashboard → editar `orders` → setear `carrier='andreani'`, `tracking_number='123456'`, `shipped_at=now()`
+- OrderTracking muestra card violeta con carrier + número + link "Rastrear en…" cuando ambos campos están populados
+
+#### Archivos creados
+- `src/lib/shippingZones.ts`
+- `src/lib/carriers.ts`
+- `src/pages/api/shipping/quote.ts`
+- `src/pages/pedido/[id]/etiqueta.astro`
+- `scripts/migrations/003_add_tracking.sql`
+
+#### Archivos modificados
+- `src/lib/checkoutSchema.ts` (quitado `shippingCost` del input, ahora solo `shippingMethod`)
+- `src/pages/api/checkout.ts` (server computa `shippingCost` desde `getZoneCost(shippingMethod)`)
+- `src/components/CheckoutForm.tsx` (debounced lookup de zona por CP, ver C15)
+- `src/components/CheckoutForm.module.css` (estilos `.shippingCard*`, `.summaryBreakdown` con nombre de zona)
+- `src/lib/types.ts` (campos `carrier`, `tracking_number`, `shipped_at` en `Order`)
+- `src/pages/api/orders/[id].ts` (query extendida con los 3 campos nuevos)
+- `src/components/OrderTracking.tsx` (render `trackingCard` + botón "Imprimir etiqueta")
+- `src/components/OrderTracking.module.css` (estilos `.tracking*`, `.printButton`)
+
+#### Cambios en flujo existente
+- El submit del checkout ya no manda `shippingCost` (lo calcula el server)
+- El summary del checkout ahora muestra `Envío · {nombre de zona}` en vez de solo "Envío"
+- `OrderTracking` muestra tracking card cuando hay carrier + tracking_number
+- `OrderTracking` muestra botón "Imprimir etiqueta" en estados post-pago
+
+#### Riesgos y mitigaciones
+| Riesgo | Mitigación |
+|---|---|
+| Tabla de CP desactualizada (nuevos CPs) | Fallback a `nacional` $5.000 cubre el caso |
+| Lookup servidor vs cliente desincronizado | Server recalcula siempre, ignora `shippingCost` del client |
+| Etiqueta se imprime mal en printers raras | `@page size` configurable, browser fallback a A4 |
+| Tracking paste manual → typos | El URL pattern se genera server-side, solo se pastea el número |
+| User sin CP o CP inválido | UI muestra "Envío estándar" + hint "Ingresá tu CP para ver el costo exacto" |
+
+#### Diferido a fase futura
+- Múltiples etiquetas por hoja A4 (flag `?layout=a4`)
+- Webhook de carrier para auto-update de `status='shipped'/'delivered'`
+- Multi-carrier en el checkout (la tabla `shipping_methods` ya está lista para esto)
+- EnvioPack cuando volumen supere 15/semana sostenidos — `getZoneForCP` se reemplaza por proxy a EnvioPack, OrderTracking recibe webhooks en vez del paste manual
+- Ajustar costos de las zonas desde Supabase Dashboard (hoy son hardcoded en `shippingZones.ts` — cuando se justifique, mover a `shipping_methods`)
+
+### ✅ Fase 3.7 — Validaciones post-checkout + notificación al admin
+
+> **Cerrado en código 2026-06-30.** Migración 003 modificada (aún pendiente de aplicar en Supabase Dashboard). Bug 3.5 (Resend) sigue bloqueando el email real al admin hasta que se verifique un dominio.
+
+Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
+- Teléfono del cliente (crítico para que el carrier coordine la entrega)
+- Provincia (explícita en la orden, no implícita del CP)
+- Warning CP vs ciudad (mismatch visible antes de submit)
+- Notificación al admin (email en cada nueva orden)
+
+#### Schema (modificación de `scripts/migrations/003_add_tracking.sql`)
+- `orders.phone text` (nullable, requerido en el form)
+- `orders.province text` (nullable, requerido en el form)
+
+#### Form (`src/components/CheckoutForm.tsx`)
+- Campo `phone` nuevo: `type="tel"`, `inputMode="tel"`, validado `^[\d\s+\-()]{8,20}$`, hint "Para que el courier coordine la entrega"
+- Campo `province` nuevo: `<select>` con 24 jurisdicciones (pre-llenado desde CP via `getProvinceFromCP(cp)`), siempre editable
+- **Warning card** cuando `isCPMismatch(cp, city)` → muestra "Tu CP (1414) corresponde a CABA pero tu ciudad dice Bariloche (que está en Río Negro). ¿Es correcto?"
+- Validación client-side: phone (8-20 chars formato libre), province (no vacía)
+- Submit bloquea solo por errores de validación; el warning NO bloquea
+
+#### Lookup de provincias (`src/lib/provinces.ts`)
+- `PROVINCES`: array de 24 entradas (CABA + 23 provincias) con `cpRanges` rough
+- `getProvinceFromCP(cp)`: pre-fill desde CP
+- `detectProvinceFromCity(city)`: keyword match contra lista de ciudades por provincia
+- `isCPMismatch(cp, city)`: helper que combina ambos lookups
+- Las keywords son las ciudades más conocidas por provincia (mínimo viable, no exhaustivo). El usuario puede editar la provincia si está mal.
+
+#### Notificación al admin (`src/lib/email.ts`)
+- Nueva función `sendAdminOrderNotification`:
+  - Lee `ADMIN_EMAIL` de env vars
+  - Si no existe → log warning + skip (no rompe el checkout)
+  - Si Resend no está configurado → log con el subject, skip
+  - Si falla el envío → log error, no rompe el checkout (fire-and-forget)
+- Llamada desde `src/pages/api/checkout.ts` después de insertar `order_items` (cubre MP y transfer)
+- Subject: `Nuevo pedido #ABC12345 — $XXXXX`
+- Body: customer, teléfono, dirección completa, items, total, link a Supabase Dashboard
+- **Fire-and-forget**: `void sendAdminOrderNotification(...)` — no await, no bloquea el checkout
+
+#### Archivos creados
+- `src/lib/provinces.ts`
+
+#### Archivos modificados
+- `scripts/migrations/003_add_tracking.sql` (agregadas columnas `phone`, `province`)
+- `src/lib/types.ts` (`Order` con `phone` + `province`)
+- `src/lib/checkoutSchema.ts` (`phone` y `province` requeridos)
+- `src/lib/email.ts` (función `sendAdminOrderNotification` + `AdminOrderEmailData` interface)
+- `src/pages/api/checkout.ts` (guarda phone/province en `orderInsert`, llama `sendAdminOrderNotification` fire-and-forget)
+- `src/components/CheckoutForm.tsx` (campos phone/province, warning de mismatch, validación)
+- `src/components/CheckoutForm.module.css` (estilos `.warningCard*`)
+- `src/pages/pedido/[id]/etiqueta.astro` (muestra phone y province en la etiqueta)
+- `src/pages/api/orders/[id].ts` (query extendida con phone, province)
+
+#### Env vars necesarias
+- `ADMIN_EMAIL` — server-only, sin default. Si no está, la notif se skipea.
+
+#### Riesgos
+| Riesgo | Mitigación |
+|---|---|
+| `ADMIN_EMAIL` no seteado | Log warning + skip. No rompe el checkout. |
+| Resend falla o no configurado | Log error. No rompe el checkout. |
+| Email al admin rebota | Bug 3.5: dominio no verificado. Mismo blocker que emails a clientes. |
+| User ignora el warning CP vs ciudad | La provincia puede corregirse después manualmente en Supabase. |
+| Keyword de ciudad no matchea (ej. pueblo chico) | El warning no aparece, pero el user puede cambiar la provincia manualmente. |
+
+#### Diferido a fase futura
+- Notificación a Slack/Discord (reemplaza email)
+- Campo "instrucciones especiales de entrega"
+- Validar que el CP exista con API externa (no factible sin servicio pago)
+- Notificación separada al admin cuando entra una transfer (hoy usa el mismo path)
 
 ### 🐛 Bugs pendientes (audit post-compra 2026-06-11)
 
@@ -435,6 +584,13 @@ contexto si alguien toca esos archivos.
 | **C10** | `src/stores/AuthStore.ts:42-45` | catch en `supabase.auth.getSession()` | Si falla el handshake inicial, el listener no queda colgado. |
 | **C12** | `src/pages/api/webhooks/mercadopago.ts:verifyMpSignature` | Reimpl custom de `WebhookSignatureValidator` con fix para `ts` en segundos | Bug del SDK v3.1.0: `Date.now() - Number(ts) / 1000` da drift de 56 años cuando MP envía `ts` en segundos. Solución: multiplicar `Number(ts) * 1000` antes de comparar con `Date.now()`. `matchedTemplate: 'sdk_official_patched'`. |
 | **C13** | `src/pages/api/webhooks/mercadopago.ts:verifyMpSignature` | Skip temporal de validación de firma para webhooks v3 con `console.warn` | MP envía webhooks v3 con un manifest distinto al que espera nuestra validación. La HMAC no matchea para v3 (mientras matchea perfecto para v1). Workaround: skip con `matchedTemplate: 'v3_skipped_temp'`. Mitigación: `payment.get()` valida con MP, `external_reference` valida con DB, UNIQUE constraint en `webhook_events` previene doble procesamiento. Fix definitivo: debug del manifest format de v3. |
+| **C14** | `src/pages/api/checkout.ts:54-61` | Server-side lookup de `shippingMethod` (zone id) → `getZoneById` + `getZoneCost`. Si la zone no existe, 400. | El client ya no manda `shippingCost`; el server lo computa desde el zone id para evitar que un client mande un shippingMethod arbitrario con costo trucado. El zone id es validado contra `SHIPPING_ZONES` (constante hardcoded, no DB) → no se puede inyectar. |
+| **C15** | `src/components/CheckoutForm.tsx:50-66` | Debounce 400ms del fetch a `/api/shipping/quote` cuando cambia `postalCode` | Evita N requests por cada tecla tipeada en el CP. Cleanup del timer en el `return` del `useEffect` para no actualizar state después de unmount. |
+| **C16** | `src/pages/pedido/[id]/etiqueta.astro:13-14` | `UUID_REGEX` + `EMAIL_REGEX` antes de cualquier query a la DB | Mismo patrón que C6. Si el id o el email no pasan el regex, redirect a `/pedido/[id]?error=invalid_request` sin tocar Supabase. |
+| **C17** | `src/pages/pedido/[id]/etiqueta.astro:48-54` | `timingSafeEqual` + dummy call cuando los buffers difieren en length | Anti-timing-attack en la verificación de email, mismo patrón que C5. El `timingSafeEqual(ab, ab)` mantiene tiempo constante si los emails tienen largo distinto. |
+| **C18** | `src/pages/api/checkout.ts:225-242` | `void sendAdminOrderNotification(...)` (fire-and-forget) | Notificación al admin no bloquea el checkout. Si Resend falla, el cliente igual completa la compra. |
+| **C19** | `src/lib/provinces.ts:detectProvinceFromCity` | Normalización NFD + lowercase antes de keyword match | "Córdoba" y "cordoba" matchean el mismo keyword. Resiliente a tildes y mayúsculas. |
+| **C20** | `src/components/CheckoutForm.tsx:60-76` | Province auto-fill solo si `!form.province` (no sobrescribe selección manual del user) | El user puede cambiar la provincia si la detección del CP está mal, y la app no la pisa. |
 
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization

@@ -10,7 +10,9 @@ export const checkoutCustomerSchema = z.object({
   name: z.string().min(1).max(255),
   address: z.string().min(1).max(500),
   city: z.string().min(1).max(100),
-  postalCode: z.string().min(1).max(20)
+  postalCode: z.string().min(1).max(20),
+  phone: z.string().min(8).max(20).regex(/^[\d\s+\-()]+$/, 'Teléfono inválido'),
+  province: z.string().min(1).max(50)
 })
 
 export const paymentMethodSchema = z.enum(['mercadopago', 'transfer'])

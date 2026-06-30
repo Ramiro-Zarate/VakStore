@@ -27,6 +27,8 @@ const { data: order, error } = await getSupabaseAdmin()
     shipping_postal_code,
     customer_name,
     email,
+    phone,
+    province,
     order_items (
       id,
       quantity,
@@ -62,6 +64,8 @@ const { data: order, error } = await getSupabaseAdmin()
     shipping_postal_code: string | null
     customer_name: string | null
     email: string | null
+    phone: string | null
+    province: string | null
     order_items: ItemRow[] | null
   }
 
@@ -108,9 +112,12 @@ const orderDate = new Date(typedOrder.created_at).toLocaleDateString('es-AR', {
         <p class="etiqueta-name">{typedOrder.customer_name ?? '—'}</p>
         <p class="etiqueta-addr">{typedOrder.shipping_address ?? '—'}</p>
         <p class="etiqueta-addr">
-          {typedOrder.shipping_city ?? '—'}
+          {typedOrder.shipping_city ?? '—'}{typedOrder.province ? `, ${typedOrder.province}` : ''}
         </p>
         <p class="etiqueta-cp">CP: {typedOrder.shipping_postal_code ?? '—'}</p>
+        {typedOrder.phone && (
+          <p class="etiqueta-phone">Tel: {typedOrder.phone}</p>
+        )}
       </section>
 
       <section class="etiqueta-items">
@@ -230,6 +237,13 @@ const orderDate = new Date(typedOrder.created_at).toLocaleDateString('es-AR', {
     margin: var(--space-1) 0 0;
     color: #000;
     font-family: var(--font-mono);
+  }
+
+  .etiqueta-phone {
+    font-size: 13px;
+    font-weight: 700;
+    margin: var(--space-1) 0 0;
+    color: #000;
   }
 
   .etiqueta-id {

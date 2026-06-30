@@ -517,3 +517,30 @@
   margin: var(--space-1) 0 0;
   line-height: var(--leading-snug);
 }
+
+.warningCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius-md);
+}
+
+.warningIcon {
+  color: #f59e0b;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.warningText {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.warningText strong {
+  font-weight: var(--weight-semibold);
+}

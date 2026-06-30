@@ -270,3 +270,109 @@ export async function sendTransferInstructionsEmail(data: TransferInstructionsEm
     console.error('[email] Resend error (transfer instructions):', error)
   }
 }
+
+export interface AdminOrderEmailData {
+  orderId: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string | null
+  totalAmount: number
+  paymentMethod: 'mercadopago' | 'transfer'
+  items: Array<{
+    name: string
+    version: string
+    size: string
+    quantity: number
+  }>
+  shippingAddress: string
+  shippingCity: string
+  shippingProvince: string | null
+  shippingPostalCode: string
+}
+
+function buildAdminOrderEmail(data: AdminOrderEmailData): string {
+  const shortId = data.orderId.slice(0, 8).toUpperCase()
+  const itemsHtml = data.items
+    .map(
+      item => `
+      <tr>
+        <td style="padding:6px 0;border-bottom:1px solid #e5e5e5;">
+          <strong>${item.name}</strong><br>
+          <span style="color:#666;font-size:13px;">${item.version} · Talle ${item.size}</span>
+        </td>
+        <td style="padding:6px 0;text-align:center;border-bottom:1px solid #e5e5e5;">${item.quantity}</td>
+      </tr>`
+    )
+    .join('')
+
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || ''
+  const dashboardLink = supabaseUrl
+    ? `${supabaseUrl.replace('https://', 'https://app.supabase.com/project/').replace('.supabase.co', '')}/editor?table=orders&filter=id%3Aeq%3A${data.orderId}`
+    : ''
+
+  const paymentLabel = data.paymentMethod === 'mercadopago' ? 'Mercado Pago' : 'Transferencia'
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#131313;">
+      <h1 style="color:#970005;margin:0 0 16px;">Nuevo pedido #${shortId}</h1>
+      <p style="margin:0 0 8px;"><strong>Cliente:</strong> ${data.customerName} (${data.customerEmail})</p>
+      ${data.customerPhone ? `<p style="margin:0 0 8px;"><strong>Teléfono:</strong> ${data.customerPhone}</p>` : ''}
+      <p style="margin:0 0 8px;"><strong>Pago:</strong> ${paymentLabel}</p>
+      <p style="margin:0 0 16px;"><strong>Total:</strong> <span style="color:#970005;font-size:18px;">${formatPrice(data.totalAmount)}</span></p>
+
+      <h2 style="font-size:16px;margin:24px 0 8px;">Envío</h2>
+      <p style="margin:0;line-height:1.5;">
+        ${data.shippingAddress}<br>
+        ${data.shippingCity}${data.shippingProvince ? `, ${data.shippingProvince}` : ''} (${data.shippingPostalCode})
+      </p>
+
+      <h2 style="font-size:16px;margin:24px 0 8px;">Items</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:2px solid #131313;">
+            <th style="text-align:left;padding:6px 0;">Producto</th>
+            <th style="text-align:center;padding:6px 0;">Cant.</th>
+          </tr>
+        </thead>
+        <tbody>${itemsHtml}</tbody>
+      </table>
+
+      ${dashboardLink ? `<p style="margin-top:24px;"><a href="${dashboardLink}" style="display:inline-block;padding:10px 20px;background-color:#970005;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">Ver en Supabase</a></p>` : ''}
+    </div>
+  `
+}
+
+export async function sendAdminOrderNotification(data: AdminOrderEmailData): Promise<void> {
+  const adminEmail = import.meta.env.ADMIN_EMAIL
+  if (!adminEmail || !adminEmail.includes('@')) {
+    console.warn('[email] ADMIN_EMAIL not configured, skipping admin notification', {
+      orderId: data.orderId
+    })
+    return
+  }
+
+  const shortId = data.orderId.slice(0, 8).toUpperCase()
+  const subject = `Nuevo pedido #${shortId} — ${formatPrice(data.totalAmount)}`
+
+  if (!resend) {
+    console.log('[email] Resend not configured, would send admin notification:', {
+      to: adminEmail,
+      subject
+    })
+    return
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: fromEmail,
+      to: adminEmail,
+      subject,
+      html: buildAdminOrderEmail(data)
+    })
+    if (error) {
+      console.error('[email] admin notification error:', error)
+    }
+  } catch (err) {
+    console.error('[email] admin notification failed:', err)
+  }
+}
