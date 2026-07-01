@@ -13,13 +13,13 @@
   letter-spacing: var(--tracking-wider);
   border-radius: var(--radius-md);
   text-decoration: none;
-  transform: translateY(-200%);
-  transition: transform var(--duration-fast) var(--ease-out);
+  opacity: 0;
+  pointer-events: none;
 }
 
-.skip-link:focus,
 .skip-link:focus-visible {
-  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
   outline: 2px solid var(--color-text-primary);
   outline-offset: 2px;
   color: var(--color-text-on-accent);
