@@ -3,8 +3,10 @@ import '../pages/styles/global.css'
 import Layout from '../layouts/Layout.astro'
 import FilterSidebar from '../components/FilterSidebar.tsx'
 import ProductGrid from '../components/ProductGrid.tsx'
+import { getLeagues } from '../lib/leagues'
 
 const { searchParams } = Astro.url
+const leagues = await getLeagues()
 
 const filters = {
   category: searchParams.get('category') || undefined,
@@ -20,7 +22,7 @@ const titlePrefix = hasFilters ? 'Resultados' : 'Todos los productos'
 
 <Layout title={`${titlePrefix} | Vak Store`} description="Explorá nuestra colección completa de camisetas de fútbol. Filtrá por liga, talle y precio.">
   <div class="productos-page">
-    <FilterSidebar client:visible />
+    <FilterSidebar client:visible leagues={leagues} />
 
     <section class="content" aria-labelledby="productos-title">
       <header class="content-header">

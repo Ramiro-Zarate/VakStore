@@ -13,6 +13,7 @@ export interface Filters {
 
 interface FilterSidebarProps {
   initialFilters?: Filters
+  leagues?: string[]
 }
 
 const CATEGORIES = [
@@ -29,16 +30,6 @@ const SIZES = [
   { value: 'L', label: 'L' },
   { value: 'XL', label: 'XL' },
   { value: 'XXL', label: 'XXL' }
-]
-
-const LEAGUES = [
-  { value: '', label: 'Todas' },
-  { value: 'Premier League', label: 'Premier League' },
-  { value: 'La Liga', label: 'La Liga' },
-  { value: 'Selecciones', label: 'Selecciones' },
-  { value: 'Ligue 1', label: 'Ligue 1' },
-  { value: 'Liga Italiana', label: 'Liga Italiana' },
-  { value: 'Liga Argentina', label: 'Liga Argentina' }
 ]
 
 const PRICE_KEYS = ['minPrice', 'maxPrice'] as const
@@ -70,7 +61,7 @@ const FILTER_LABELS: Record<keyof Filters, string> = {
   maxPrice: 'Precio máx.'
 }
 
-export default function FilterSidebar(_: FilterSidebarProps) {
+export default function FilterSidebar({ leagues = [] }: FilterSidebarProps) {
   const [filters, setFilters] = useState<Filters>(getFiltersFromURL)
   const [isOpen, setIsOpen] = useState(false)
   const baseId = useId()
@@ -131,6 +122,11 @@ export default function FilterSidebar(_: FilterSidebarProps) {
 
   const activeFilters = (Object.entries(filters) as [keyof Filters, string | undefined][])
     .filter(([, value]) => value)
+
+  const leagueOptions = [
+    { value: '', label: 'Todas' },
+    ...leagues.map(l => ({ value: l, label: l }))
+  ]
 
   return (
     <>
@@ -226,7 +222,7 @@ export default function FilterSidebar(_: FilterSidebarProps) {
 
         <Field id={idLeague} label="Liga">
           <Select
-            options={LEAGUES}
+            options={leagueOptions}
             value={filters.league ?? ''}
             onChange={e => handleChange('league', e.target.value)}
           />
@@ -294,4 +290,4 @@ export function useFilters() {
   return filters
 }
 
-export { CATEGORIES, SIZES, LEAGUES }
+
