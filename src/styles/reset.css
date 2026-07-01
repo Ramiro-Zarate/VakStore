@@ -14,6 +14,13 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
+  scroll-padding-top: var(--header-height);
+}
+
+@media (max-width: 768px) {
+  html {
+    scroll-padding-top: var(--header-height-mobile);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
