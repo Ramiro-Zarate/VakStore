@@ -7,6 +7,7 @@ import { getLeagues } from '../lib/leagues'
 
 const { searchParams } = Astro.url
 const leagues = await getLeagues()
+const q = searchParams.get('q') ?? undefined
 
 const filters = {
   category: searchParams.get('category') || undefined,
@@ -30,7 +31,7 @@ const titlePrefix = hasFilters ? 'Resultados' : 'Todos los productos'
         <h1 id="productos-title" class="page-title">Productos</h1>
         <p class="page-subtitle">Encontrá tu próxima camiseta. Filtrá por liga, talle o precio.</p>
       </header>
-      <ProductGrid client:visible />
+      <ProductGrid client:visible q={q} />
     </section>
   </div>
 </Layout>

@@ -21,6 +21,10 @@ export const GET: APIRoute = async ({ url }) => {
     const minPrice = searchParams.get('minPrice')
     const maxPrice = searchParams.get('maxPrice')
     const featured = searchParams.get('featured')
+    const qRaw = (searchParams.get('q') ?? '').trim().slice(0, 100)
+    const qSafe = qRaw.replace(/[,."()\\]/g, '')
+    const q = qSafe.length > 0 ? qSafe : null
+    const searchFilter = q ? `name.ilike.%${q}%,description.ilike.%${q}%` : null
 
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
     const limit = Math.min(MAX_LIMIT, Math.max(1, Number(searchParams.get('limit')) || DEFAULT_LIMIT))
@@ -61,6 +65,7 @@ export const GET: APIRoute = async ({ url }) => {
     if (category) countQuery = countQuery.eq('category', category)
     if (featured === 'true') countQuery = countQuery.eq('is_featured', true)
     if (productIds) countQuery = countQuery.in('id', productIds)
+    if (searchFilter) countQuery = countQuery.or(searchFilter)
 
     const { count: total, error: countError } = await countQuery
     if (countError) {
@@ -85,6 +90,7 @@ export const GET: APIRoute = async ({ url }) => {
     if (category) query = query.eq('category', category)
     if (featured === 'true') query = query.eq('is_featured', true)
     if (productIds) query = query.in('id', productIds)
+    if (searchFilter) query = query.or(searchFilter)
 
     const { data, error } = await query as unknown as { data: ProductWithVariants[] | null; error: any }
 

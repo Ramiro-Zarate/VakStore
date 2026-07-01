@@ -654,10 +654,71 @@ contexto si alguien toca esos archivos.
 | **C20** | `src/components/CheckoutForm.tsx:60-76` | Province auto-fill solo si `!form.province` (no sobrescribe selección manual del user) | El user puede cambiar la provincia si la detección del CP está mal, y la app no la pisa. |
 | **C21** | `src/components/Nav.astro:8-22` | `isCurrent()` valida query params del href (no solo `pathname.startsWith(path)`) | Sin esto, links con query string (ej. `/productos?sale=true`) se marcan activos en cualquier página que matchee el path. También incluye `split('#')` para que links con hash (ej. `/cuenta#contacto`) matcheen correctamente. |
 | **C22** | `src/components/WhatsAppFloat.module.css:5` | `z-index: 200` (por encima del cookie banner que tiene 100) | El WhatsApp float quedaba visualmente tapado por el banner de cookies en la primera visita. Si se baja el z-index, vuelve el bug. |
+| **C23** | `src/styles/reset.css:9-23` | `scroll-padding-top: var(--header-height)` en `<html>` | Sin esto, los anchor links quedaban tapados por el Nav sticky (72px desktop / 64px mobile). El browser scrollea al anchor pero el header lo cubre. Ver Fase 3.8. |
+| **C24** | `src/styles/a11y.css:1-26` | Skip-link con `opacity:0` + `pointer-events:none` y solo `:focus-visible` (no `:focus`) | El patrón `transform: translateY(-200%)` + `:focus` hacía que el skip-link apareciera al volver con back/forward del browser o cargar con `#hash` en URL. Ver Fase 3.8. |
+| **C25** | `src/pages/api/products/index.ts:18-23` | Sanitización de `q` (search query): trim + slice 100 chars + remover `,."()\\` antes de pasar a PostgREST `.or()` | Defensivo contra inputs raros. `%` y `_` se mantienen como wildcards de ILIKE (feature). El `.or()` parsea el string con sintaxis PostgREST, por eso hay que remover los chars que romperían el parse. Ver Fase 3.8. |
+| **C26** | `src/components/SearchBar.tsx:36-41` | Submit hace `window.location.href` (no `pushState` + `setFilters`) | El SearchBar está en el Nav y no escucha `filterschange`. Si se removiera `q` desde el FilterSidebar con `pushState`, el input del Nav quedaría desincronizado. `window.location.href` recarga la página y sincroniza todo. |
+
+### ✅ Fase 3.8 — Buscador + Single Source of Truth en ligas + cleanup UX (2026-07-01)
+
+Sesión de cleanup + feature: el footer apuntaba a links rotos, los
+anchors quedaban tapados por el Nav sticky, el skip-link aparecía de
+vez en cuando, los filtros estaban hardcodeados desincronizados con la
+DB, y faltaba un buscador básico.
+
+#### Cambios
+
+- **Footer** (`src/components/Footer.astro:55-59`) — 3 links reales:
+  - Contacto → `/contacto` (link roto: `/cuenta#contacto`)
+  - Cambios y devoluciones → `/privacidad#7.politica-de-devoluciones`
+  - Términos y condiciones → `/privacidad` (top)
+  - Eliminados Envíos y FAQs (no tenían destino real).
+- **`src/pages/privacidad.astro:93`** — `id="7.politica-de-devoluciones"` agregado al `<h2>` de la sección 7. Habilita el deep-link desde el footer.
+- **`src/styles/reset.css:17, 19-23`** — `scroll-padding-top: var(--header-height)` en `<html>` (+ media query mobile). Bug global de anchors tapados por Nav sticky. Ver C23.
+- **`src/styles/a11y.css:1-26`** — skip-link migrado de `transform: translateY(-200%)` a `opacity:0 + pointer-events:none`. Selector de focus de `:focus,:focus-visible` a solo `:focus-visible`. Resuelve el bug de "skip-link aparece de vez en cuando" al hacer back/forward o cargar con `#hash`. Ver C24.
+- **Filtros Single Source of Truth** (parcial):
+  - `src/lib/leagues.ts` (nuevo) — `getLeagues()` server-side con caché en memoria 60s + fallback (6 ligas normalizadas). Query: `supabase.from('product_variants').select('league, products!inner(is_active)').eq('products.is_active', true)`.
+  - `src/components/FilterSidebar.tsx` — prop `leagues?: string[]`. Solo ligas dinámicas. `CATEGORIES` y `SIZES` restaurados hardcoded (talles en orden natural: S → M → L → XL → XXL, no lexicográfico).
+  - `src/components/Footer.astro` — sin helper, 3 links de categorías hardcoded.
+  - `src/lib/types.ts:5` — `category: 'camisetas' | 'shorts' | 'camperas'` (literal type restaurado, da autocomplete).
+  - **Decisión de scope**: solo ligas se hidratan. Categorías y talles son sets casi-fijos conocidos; el .sort() alfabético rompe el orden natural de talles. Hidratar contra la DB no aporta cuando el set es chico y conocido.
+- **Migración 004** (`scripts/migrations/004_normalize_leagues.sql`) — aplicada manualmente 2026-07-01:
+  - `UPDATE product_variants SET league='Selecciones' WHERE league='Seleccioones'`
+  - `UPDATE product_variants SET league='Premier League' WHERE league='Premier'`
+  - Documenta convención: categorías en `products.category` siempre plurales (`'shorts'`, `'camperas'`, no singulares).
+- **Buscador type text**:
+  - `src/components/SearchBar.tsx` (nuevo, React island, `client:load`) — input en el Nav top. Submit (Enter) → `window.location.href = '/productos?q=' + encodeURIComponent(trimmed)`. Botón de clear (×). Sincroniza con `?q=` de la URL al montar.
+  - `src/components/SearchBar.module.css` (nuevo) — estilos con mobile responsive: en desktop input inline, en mobile colapsa a ícono de lupa que abre un overlay fijo en el top.
+  - `src/components/Nav.astro` — `<SearchBar client:load />` en `.searchSlot` (nueva div) entre `.primaryNav` y `.actions`. Grid del `.inner` cambió de 3 a 4 columnas (`auto 1fr auto auto`).
+  - `src/components/Nav.module.css:11-19, 106-108` — grid actualizada + mobile override (`.searchSlot { justify-content: flex-end; }`).
+  - `src/pages/api/products/index.ts:24-27, 64, 88` — soporte para `q`. Trim + slice 100 chars + sanitizar `,."()\\` (defensivo contra PostgREST `.or()`). Aplica `name.ilike.%q%,description.ilike.%q%` vía `.or()`.
+  - `src/pages/productos.astro:11, 32` — lee `q` de `searchParams` y lo pasa a `<ProductGrid q={q} />`.
+  - `src/components/ProductGrid.tsx:10, 17, 32-33, 39, 69, 44, 140` — prop `q?: string`, incluido en `getFiltersFromURL`, en el fetch, y en empty state diferenciado (`No hay productos que coincidan con "X"`).
+  - `src/components/FilterSidebar.tsx:11, 49, 64` — `q` agregado al interface `Filters` y a `FILTER_LABELS` como "Búsqueda". Tag removable: al remover, `window.location.href` recarga para sincronizar el SearchBar del Nav. Ver C26.
+
+#### Verificación
+
+- [x] Build limpio (`npm run build` ~20s, sin warnings nuevos)
+- [x] Footer links funcionan (Contacto, Cambios con scroll-padding correcto, Términos)
+- [x] Skip-link ya no aparece fantasma (solo con Tab)
+- [x] Sidebar de `/productos`: Categoría (3 hardcoded) + Talle (5 hardcoded en orden) + Liga (6 dinámicas desde DB)
+- [x] `/api/products?q=foo` busca en `name` y `description` con ILIKE
+- [x] Tag removable de `Búsqueda` en FilterSidebar sincroniza con el input del Nav
+- [x] Mobile: SearchBar colapsa a ícono de lupa con overlay
+
+#### Diferido a fase futura
+
+- Búsqueda también en `product_variants.club` (ej. "Real Madrid" cuando el name del producto es "Camiseta Titular 24/25")
+- Full-text search con `tsvector` (cuando el catálogo crezca y ILIKE quede lento)
+- Autocomplete live en el Nav (sin submit)
+- Búsqueda fuzzy (typos)
+- Historial de búsquedas
+
+---
 
 ### ⏳ Fase 4 — Escalar (cuando duela)
 - [ ] Imágenes en Supabase Storage + Image Optimization
-- [ ] Búsqueda full-text
+- [x] ~~Búsqueda full-text~~ — Búsqueda con ILIKE implementada (Fase 3.8). Full-text con `tsvector` queda diferido para cuando duela el O(n).
 - [ ] Panel admin propio
 - [ ] Carrito persistente en DB
 - [ ] Bricks MP para checkout embebido

@@ -9,6 +9,7 @@ export interface Filters {
   league?: string
   minPrice?: string
   maxPrice?: string
+  q?: string
 }
 
 interface FilterSidebarProps {
@@ -49,7 +50,8 @@ function getFiltersFromURL(): Filters {
     size: params.get('size') || undefined,
     league: params.get('league') || undefined,
     minPrice: clampPrice(params.get('minPrice') || undefined),
-    maxPrice: clampPrice(params.get('maxPrice') || undefined)
+    maxPrice: clampPrice(params.get('maxPrice') || undefined),
+    q: params.get('q') || undefined
   }
 }
 
@@ -58,7 +60,8 @@ const FILTER_LABELS: Record<keyof Filters, string> = {
   size: 'Talle',
   league: 'Liga',
   minPrice: 'Precio mín.',
-  maxPrice: 'Precio máx.'
+  maxPrice: 'Precio máx.',
+  q: 'Búsqueda'
 }
 
 export default function FilterSidebar({ leagues = [] }: FilterSidebarProps) {
@@ -190,7 +193,16 @@ export default function FilterSidebar({ leagues = [] }: FilterSidebarProps) {
                   <button
                     type="button"
                     className={styles.tagRemove}
-                    onClick={() => handleChange(key, '')}
+                    onClick={() => {
+                      if (key === 'q') {
+                        const params = new URLSearchParams(window.location.search)
+                        params.delete('q')
+                        const qs = params.toString()
+                        window.location.href = qs ? `/productos?${qs}` : '/productos'
+                      } else {
+                        handleChange(key, '')
+                      }
+                    }}
                     aria-label={`Quitar filtro ${FILTER_LABELS[key]} ${value}`}
                   >
                     <Icon size={12} aria-hidden="true">

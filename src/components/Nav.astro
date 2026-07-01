@@ -3,6 +3,7 @@ import styles from './Nav.module.css';
 import CartIsland from './CartIsland.tsx';
 import AuthNav from './AuthNav.tsx';
 import MobileMenu from './MobileMenu.tsx';
+import SearchBar from './SearchBar.tsx';
 
 const pathname = Astro.url.pathname;
 const isCurrent = (href: string) => {
@@ -51,6 +52,10 @@ const links = [
         ))}
       </ul>
     </nav>
+
+    <div class={styles.searchSlot}>
+      <SearchBar client:load />
+    </div>
 
     <div class={styles.actions}>
       <AuthNav client:load />

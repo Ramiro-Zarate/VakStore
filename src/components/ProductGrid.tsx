@@ -9,6 +9,7 @@ interface ProductGridProps {
   initialFilters?: Filters
   featuredOnly?: boolean
   pageSize?: number
+  q?: string
 }
 
 function getFiltersFromURL(): Filters {
@@ -19,26 +20,30 @@ function getFiltersFromURL(): Filters {
     size: params.get('size') || undefined,
     league: params.get('league') || undefined,
     minPrice: params.get('minPrice') || undefined,
-    maxPrice: params.get('maxPrice') || undefined
+    maxPrice: params.get('maxPrice') || undefined,
+    q: params.get('q') || undefined
   }
 }
 
 export default function ProductGrid({
   initialFilters = {},
   featuredOnly = false,
-  pageSize = 12
+  pageSize = 12,
+  q: initialQ
 }: ProductGridProps) {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const [qCurrent, setQCurrent] = useState<string | undefined>(initialQ)
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   const fetchProducts = (filters: Filters, pageToFetch: number) => {
     setLoading(true)
     setError(null)
+    setQCurrent(filters.q)
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
       if (value) params.set(key, value)
@@ -63,7 +68,7 @@ export default function ProductGrid({
   }
 
   useEffect(() => {
-    const initial = getFiltersFromURL()
+    const initial = { ...getFiltersFromURL(), ...(initialQ ? { q: initialQ } : {}) }
     fetchProducts(initial, 1)
   }, [])
 
@@ -139,7 +144,11 @@ export default function ProductGrid({
           </Icon>
         </span>
         <h2 className={styles.emptyTitle}>No encontramos resultados</h2>
-        <p className={styles.emptyDesc}>Probá ajustar los filtros o volver más tarde.</p>
+        <p className={styles.emptyDesc}>
+          {qCurrent
+            ? `No hay productos que coincidan con "${qCurrent}". Probá con otros términos.`
+            : 'Probá ajustar los filtros o volver más tarde.'}
+        </p>
       </div>
     )
   }

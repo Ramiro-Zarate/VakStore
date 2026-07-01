@@ -10,13 +10,19 @@
 
 .inner {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: var(--space-5);
   max-width: var(--container-max);
   margin: 0 auto;
   padding: var(--space-3) var(--space-4);
   min-height: var(--header-height);
+}
+
+.searchSlot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .logo {
@@ -100,6 +106,10 @@
 
   .primaryNav {
     display: none;
+  }
+
+  .searchSlot {
+    justify-content: flex-end;
   }
 
   .logo {
