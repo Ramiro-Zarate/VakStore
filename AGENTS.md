@@ -458,6 +458,60 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 - EnvioPack cuando volumen supere 15/semana sostenidos — `getZoneForCP` se reemplaza por proxy a EnvioPack, OrderTracking recibe webhooks en vez del paste manual
 - Ajustar costos de las zonas desde Supabase Dashboard (hoy son hardcoded en `shippingZones.ts` — cuando se justifique, mover a `shipping_methods`)
 
+#### Verificación operativa del tracking post-compra
+
+> **Cuándo usar este checklist**: pre-release que toque `OrderTracking.tsx` / `carriers.ts` / render de la card, o la primera vez que se carga un envío real para un cliente.
+
+##### Pre-condición
+- [ ] Orden existente con `status ∈ {paid, processing, shipped, delivered}` y al menos un `order_item`. Si no hay, generar una con `MP_MOCK_MODE=true`.
+- [ ] La orden NO debe tener `carrier` ni `tracking_number` (estado limpio).
+- [ ] Sesión con acceso a `/pedido/[id]?email=<orderEmail>` (ver C5/C6).
+
+##### Test 1 — Render con Andreani
+1. Supabase Dashboard → tabla `orders` → editar la orden:
+   - `carrier = 'andreani'`
+   - `tracking_number = 'TEST12345'`
+   - `shipped_at = now()`
+2. Recargar `/pedido/[id]?email=<orderEmail>`.
+3. Verificar:
+   - [ ] Aparece card violeta con título "Seguimiento de envío"
+   - [ ] "Carrier" muestra "Andreani"
+   - [ ] "Número de tracking" muestra `TEST12345`
+   - [ ] "Enviado el" muestra fecha en formato `es-AR`
+   - [ ] Link "Rastrear en Andreani" presente
+
+##### Test 2 — URL del link
+- [ ] Click → URL = `https://www.andreani.com/envio/TEST12345`
+- [ ] Repetir con `tracking_number='ABC 123/XYZ'` → URL contiene `%20` y `%2F` (`encodeURIComponent` aplica)
+
+##### Test 3 — Repetir con Correo Argentino
+1. Misma orden → `carrier='correo_argentino'`, `tracking_number='CA9876'`
+2. Recargar `/pedido/[id]?email=<orderEmail>`
+3. Card muestra "Correo Argentino" + número
+- [ ] URL del link = `https://www.correoargentino.com.ar/consulta-de-envio?nro=CA9876`
+
+##### Test 4 — Gating (regression crítico)
+| Estado | Comportamiento esperado |
+|---|---|
+| `carrier=null` y `tracking_number=null` | NO aparece card |
+| `carrier='andreani'` y `tracking_number=null` | NO aparece card (gating requiere ambos) |
+| `carrier=null` y `tracking_number='TEST'` | NO aparece card |
+| `carrier='oca'` y `tracking_number='TEST'` | Aparece card con nombre fallback "oca" + link roto. **Esperado**: no se valida carrier contra whitelist, se confía en el paste admin. Corregir en Supabase. |
+
+##### Test 5 — Cross-check con etiqueta (Fase 3.6)
+- [ ] El botón "Imprimir etiqueta de envío" sigue apareciendo (no se oculta al agregar tracking)
+
+##### Cleanup
+- [ ] Restaurar la orden: `carrier=null`, `tracking_number=null`, `shipped_at=null` para no dejar datos de prueba en la DB
+
+##### Edge cases a recordar
+| Caso | Comportamiento |
+|---|---|
+| `carrier` con typo (`'andriani'`) | Card muestra el string raw como nombre + link roto a `andreani.com/envio/...`. Corregir en Supabase. |
+| `tracking_number` con espacios/slashes | `encodeURIComponent` los maneja → URL válida. |
+| `shipped_at` en timezone raro | `toLocaleDateString('es-AR')` normaliza al timezone del browser del cliente. |
+| Status `cancelled` con carrier pegado | La card SÍ se renderiza (gating es solo por carrier+tracking_number, no por status). Decisión consciente: útil ver el tracking aunque el pedido se canceló. |
+
 ### ✅ Fase 3.7 — Validaciones post-checkout + notificación al admin
 
 > **Cerrado en código + DB 2026-06-30.** Migración 003 aplicada (5 columnas: carrier, tracking_number, shipped_at, phone, province). Migración 002 aplicada retroactivamente ese mismo día (ver bug crítico). Bug 3.5 (Resend) sigue bloqueando el email real al admin hasta que se verifique un dominio.
