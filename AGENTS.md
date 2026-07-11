@@ -158,6 +158,21 @@ MP redirige a back_urls.success → /pedido/[orderId]
 
 ## 6. Roadmap
 
+### 🎯 Current focus (próximas 2 semanas)
+
+1. **🔴 Comprar dominio y verificarlo en Resend** (sin código, dueño del negocio)
+   - Comprar dominio en NIC.ar o Namecheap
+   - `resend.com/domains` → wizard DNS (DKIM + SPF)
+   - Cambiar `RESEND_FROM_EMAIL` en Vercel (3 envs)
+   - Sin esto no salen emails reales a clientes (bug 3.5)
+2. **🔴 Reemplazar CUIT placeholder en `src/lib/bankInfo.ts:7`**
+   - Necesita CUIT real (formato `XX-XXXXXXXX-X`)
+   - Mientras sea `00-00000000-0` las transferencias se rechazan
+3. **🟡 Fix espacio al inicio del CBU en `src/lib/bankInfo.ts:5`**
+   - Decidido, pendiente de ejecutar (1 línea)
+4. **🟡 Batch D+E+F** — sanitize body webhook + log refund + whitelist status (3 fixes en producción)
+5. **🟡 Webhook v3 signature (C13)** — debug del manifest format
+
 ### ✅ Fase 0 — RLS fix (cerrado)
 - [x] Drop policies existentes (`Users can insert/view own orders`, etc.)
 - [x] Recreate policies: `products`/`variants` público con `is_active=true`, `profiles` con `auth.uid()=id`, `cart_items` con `auth.uid()=user_id`
@@ -196,7 +211,7 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] Fix typo `MP_ACCES_TOKEN` → `MP_ACCESS_TOKEN` en `.env`
 - [x] Webhook firma: migrar de `verifySignature` custom a `WebhookSignatureValidator` oficial de la SDK v3 (dataId del query, tolerance 5min, anti-replay)
 - [x] Eliminar import muerto de `node:crypto` en `src/pages/api/webhooks/mercadopago.ts`
-- [ ] Validar flow E2E con tarjeta sandbox APRO (`MP_MOCK_MODE=false` + token TEST) — bloqueado por cuenta MP al 50% de onboarding
+- [x] ~~Validar flow E2E con tarjeta sandbox APRO~~ — N/A: pre-prod bloque eliminado, E2E validado con compra real (ver §10)
 
 ### ✅ Fase 3 — Cerrada
 
@@ -835,7 +850,6 @@ Para testear el flow completo sin necesidad de tener la cuenta de MP al 80%:
 - 🛠 `MP_MOCK_MODE` no está en Vercel → corre flow real contra producción.
 - ✅ `RESEND_API_KEY` y `RESEND_FROM_EMAIL` configurados en Vercel. Email de confirmación llega al cliente linkeado con su cuenta de MP. Validado end-to-end.
 - ✅ Resuelto: 500 en `POST /api/orders/[id]`. Causa raíz confirmada: PostgREST expone las relaciones `order_items → product_variants` y `product_variants → products` en plural por el naming del FK constraint. El query usaba singular (`product_variant` y `product`) → PGRST200. Fix: 2 cambios de 1 palabra en el nested select de `src/pages/api/orders/[id].ts:82,85`. El form de `/pedido` ahora muestra el pedido correctamente. **Nota para Opción B (futuro)**: renombrar los FK constraints a singular + `NOTIFY pgrst, 'reload schema'` permitiría volver al singular en el código (convención más semántica). Pendiente solo si la inconsistencia molesta.
-- 📞 Pendiente: resolver 500 en `POST /api/orders/[id]`. (movido arriba como ✅)
 - 📞 Pendiente: debug del manifest format de v3 para re-habilitar validación de firma v3 (actualmente skipeada con warning).
 
 #### Procedimiento para validar path de oversell con MP real
