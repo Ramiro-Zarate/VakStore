@@ -160,18 +160,80 @@ MP redirige a back_urls.success → /pedido/[orderId]
 
 ### 🎯 Current focus (próximas 2 semanas)
 
+**Activos (alta prioridad):**
+
 1. **🔴 Comprar dominio y verificarlo en Resend** (sin código, dueño del negocio)
    - Comprar dominio en NIC.ar o Namecheap
    - `resend.com/domains` → wizard DNS (DKIM + SPF)
    - Cambiar `RESEND_FROM_EMAIL` en Vercel (3 envs)
    - Sin esto no salen emails reales a clientes (bug 3.5)
-2. **🔴 Reemplazar CUIT placeholder en `src/lib/bankInfo.ts:7`**
-   - Necesita CUIT real (formato `XX-XXXXXXXX-X`)
-   - Mientras sea `00-00000000-0` las transferencias se rechazan
-3. **🟡 Fix espacio al inicio del CBU en `src/lib/bankInfo.ts:5`**
-   - Decidido, pendiente de ejecutar (1 línea)
-4. **🟡 Batch D+E+F** — sanitize body webhook + log refund + whitelist status (3 fixes en producción)
-5. **🟡 Webhook v3 signature (C13)** — debug del manifest format
+2. **🟡 Batch D+E+F** — sanitize body webhook + log refund + whitelist status (3 fixes en producción)
+3. **🟡 Webhook v3 signature (C13)** — debug del manifest format
+4. **🟡 URL real de Facebook** — placeholder `https://facebook.com/` en `src/pages/contacto.astro:11` y `src/components/Footer.astro:24`. Bloqueado: falta URL real del dueño.
+
+**Backlog de Fase 3.9 (próxima sesión, ya planificado):**
+
+> Pendientes de la auditoría pre-launch 2026-07-01. Todos tienen
+> scope definido y se pueden resolver en 1 sesión de 2-3 hs.
+
+5. **🟢 Archivos públicos faltantes** (1-2 hs, sin decisión de negocio)
+   - `public/robots.txt` — 3 líneas, permitir todo salvo `/api/`, `/pedido/`, `/cuenta/`
+   - `src/pages/404.astro` — layout con link a `/` y `/productos`
+   - `public/images/og-default.png` — imagen 1200×630 para previews de WhatsApp/IG/Twitter. Layout.astro:18 ya la referencia. Generar con HTML+canvas o pedir a diseñador.
+   - Sitemap — `npm install @astrojs/sitemap` + integration en `astro.config.mjs` con `PUBLIC_SITE_URL`
+
+6. **🟢 Env vars faltantes en Vercel** (5 min del dueño)
+   - `CRON_SECRET` — `openssl rand -hex 32` y setear en Vercel (3 envs). Sin esto, el cron de auto-cancel de transfers impagas rechaza todas las llamadas.
+   - `ADMIN_EMAIL` — email del dueño para notif de nuevas órdenes (Fase 3.7). Sin esto, la notif se skipea.
+   - `MP_MOCK_MODE` — confirmar en Vercel que esté en `false` o vacío.
+   - `TRANSFER_EXPIRY_HOURS` — opcional, default 72 funciona.
+
+7. **🟢 `noindex` en páginas con búsqueda/filtros** (1 línea)
+   - `src/pages/productos.astro:24` → `<Layout ... noindex={Boolean(q || hasFilters)}>`
+   - Evita que Google indexe miles de URLs únicas con `?q=...` o `?category=...&size=...`
+
+8. **🟢 Slugs vs UUIDs en URLs de producto** (~2-3 hs, requiere schema)
+   - **Sí requiere cambios en el schema de la DB:** agregar `slug text UNIQUE NOT NULL` a `products`
+   - Migración: `scripts/migrations/005_add_slugs.sql` (idempotente, con backfill)
+   - Nuevo `src/pages/productos/[slug].astro` (reemplaza al actual `src/pages/camisetas/[id].astro`)
+   - Middleware en `src/middleware.ts` con redirect 301 `/camisetas/<uuid>` → `/productos/<slug>` para no romper links viejos
+   - Script de generación de slugs desde `name` del producto
+   - **Impacto SEO:** URLs legibles rankean mejor y se ven más profesionales al compartir
+   - **No bloqueante para launch**, pero conviene hacerlo antes de empezar a posicionar orgánicamente
+
+9. **🟢 Verificar migraciones aplicadas en producción** (2 min, técnico)
+   - Query en Supabase SQL Editor para confirmar que existen las 10 columnas nuevas de `orders`: `carrier`, `tracking_number`, `shipped_at`, `phone`, `province`, `payment_method`, `shipping_method`, `shipping_cost`, `bank_info_snapshot`, `transfer_expires_at`
+   - AGENTS.md §3.5 dice que 002 se aplicó retroactivamente el 2026-06-30 y 003 está "pendiente de aplicar" — confirmar
+
+10. **🟢 Schema.org structured data en producto** (30 min, técnico)
+    - Nuevo `src/components/ProductSchema.tsx` que renderiza `<script type="application/ld+json">` con `Product`, `Offer`, `AggregateRating` (si hay), `availability` (basado en `stock_quantity`)
+    - Incluir en `src/pages/camisetas/[id].astro` (o el futuro `[slug].astro`)
+    - **Impacto SEO:** rich snippets en Google (precio y disponibilidad directo en resultados)
+
+11. **🟢 Analytics** (5 min, decisión del dueño)
+    - **Plausible** (recomendado): gratis hasta 10k visitas/mes, no usa cookies, no requiere actualizar el banner de cookies. 1 `<script async>` en `Layout.astro:51` (después de los preconnect).
+    - Alternativa: Google Analytics 4 (gratis ilimitado, usa cookies, requiere actualizar banner).
+    - Alternativa: Vercel Analytics (requiere plan Pro, $0 extra).
+    - Métricas útiles: visitas/día, productos más vistos, fuentes de tráfico, abandono de carrito.
+
+**Pendiente del dueño (no técnico):**
+
+12. **🔴 Reemplazar CUIL temporal por CUIT del Monotributo en `src/lib/bankInfo.ts:7`**
+    - Valor actual (temporal): `20-47144775-8` (CUIL del dueño)
+    - Reemplazar cuando se cree el Monotributo y se obtenga el CUIT
+    - Mismo formato `XX-XXXXXXXX-X`, no requiere cambios de código
+
+13. **🔴 Completar placeholders de `src/pages/privacidad.astro`**
+    - Razón social o nombre del titular (línea 23)
+    - CUIT del Monotributo (línea 24)
+    - Domicilio comercial (líneas 25 y 114)
+    - WhatsApp público formato E.164 (línea 113) — puede ser el mismo `PUBLIC_WHATSAPP_NUMBER` de Vercel
+    - Todos visibles al público en la página legal
+
+**Cambios recientes (cerrados en este commit):**
+- [x] CBU sin espacio al inicio en `src/lib/bankInfo.ts:5` (mismo número)
+- [x] CUIT placeholder reemplazado por CUIL temporal `20-47144775-8`
+- [x] Hero hardcodeado "16 Modelos" / "48h Envío" → "Diseños exclusivos" / "Envíos a todo el país" en `src/components/Hero.astro:34-49`
 
 ### ✅ Fase 0 — RLS fix (cerrado)
 - [x] Drop policies existentes (`Users can insert/view own orders`, etc.)

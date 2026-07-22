@@ -2,9 +2,9 @@ import type { BankInfoSnapshot } from './types'
 
 export const bankInfo: BankInfoSnapshot = {
   alias: 'vakstoree',
-  cbu: ' 0000076500000053416757',
+  cbu: '0000076500000053416757',
   holder: 'Alvarez Valentin',
-  cuit: '00-00000000-0'
+  cuit: '20-47144775-8'
 }
 
 export const whatsappNumber: string = process.env.PUBLIC_WHATSAPP_NUMBER || '+5491100000000'
