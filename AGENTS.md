@@ -234,6 +234,7 @@ MP redirige a back_urls.success → /pedido/[orderId]
 - [x] CBU sin espacio al inicio en `src/lib/bankInfo.ts:5` (mismo número)
 - [x] CUIT placeholder reemplazado por CUIL temporal `20-47144775-8`
 - [x] Hero hardcodeado "16 Modelos" / "48h Envío" → "Diseños exclusivos" / "Envíos a todo el país" en `src/components/Hero.astro:34-49`
+- [x] **🟢 Chore — Eliminar feature de etiqueta imprimible** — Andreani da la etiqueta desde su panel, no necesitamos generar la nuestra. El botón "Imprimir etiqueta" le aparecía al cliente (mala UX). Eliminado `etiqueta.astro` + botón en `OrderTracking.tsx` + CSS `.printRow`/`.printButton`. Defensive checks C16 y C17 removidos (ya no hay endpoint de etiqueta).
 
 ### ✅ Fase 0 — RLS fix (cerrado)
 - [x] Drop policies existentes (`Users can insert/view own orders`, etc.)
@@ -456,14 +457,15 @@ Admin corre: npm run confirm-order <orderId>
 - Notificación al admin cuando entra una transfer nueva (Slack/email)
 - Stock reservation al crear la orden (decrement + release si expira)
 
-### ✅ Fase 3.6 — Envíos por zona + etiqueta + tracking manual
+### ✅ Fase 3.6 — Envíos por zona + tracking manual
 
 > **Cerrado en código 2026-06-30.** Pendiente: aplicar `scripts/migrations/003_add_tracking.sql` en Supabase Dashboard.
 
 **Decisión clave:** NO se integró EnvioPack. Con <5 envíos/semana y operatoria
 de "llevar a la sucursal del carrier", el fee por envío + complejidad de la API
 no se justificaban. Se optó por un **"EnvioPack casero"**: pricing por zona +
-etiqueta imprimible + tracking manual pegado desde el panel del carrier.
+tracking manual pegado desde el panel del carrier. La etiqueta física la entrega
+el propio carrier al momento de cargar el envío; no generamos etiqueta propia.
 
 #### Schema (`scripts/migrations/003_add_tracking.sql`, **pendiente de aplicar**)
 - `orders.carrier` text, CHECK (`'andreani'` | `'correo_argentino'`, nullable)
@@ -482,13 +484,6 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 - Checkout: el **server computa el costo desde el zone id** (no confía en el client). Ver C14.
 - Tabla `shipping_methods` queda sin uso por ahora; se mantiene para futura integración con EnvioPack
 
-#### Etiqueta imprimible (`src/pages/pedido/[id]/etiqueta.astro`)
-- Server-rendered, autenticación id+email en query string (misma que OrderTracking, ver C16/C17)
-- Layout 10×15cm con `@page { size: 100mm 150mm; margin: 4mm }`, CSS `@media print` oculta nav/footer/whatsapp-float
-- Muestra: remitente, destinatario destacado, CP grande, items, total, ID orden
-- Botón "Imprimir" → `window.print()`; botón "Volver al pedido" en pantalla
-- Acceso: botón "Imprimir etiqueta de envío" en OrderTracking cuando `status ∈ {paid, processing, shipped, delivered}`
-
 #### Tracking para el cliente
 - 2 carriers soportados en `src/lib/carriers.ts`: **Andreani**, **Correo Argentino** (sin OCA)
 - `getTrackingUrl(carrierId, nro)` → URL deep-link al tracking del carrier
@@ -500,7 +495,6 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 - `src/lib/shippingZones.ts`
 - `src/lib/carriers.ts`
 - `src/pages/api/shipping/quote.ts`
-- `src/pages/pedido/[id]/etiqueta.astro`
 - `scripts/migrations/003_add_tracking.sql`
 
 #### Archivos modificados
@@ -510,26 +504,23 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 - `src/components/CheckoutForm.module.css` (estilos `.shippingCard*`, `.summaryBreakdown` con nombre de zona)
 - `src/lib/types.ts` (campos `carrier`, `tracking_number`, `shipped_at` en `Order`)
 - `src/pages/api/orders/[id].ts` (query extendida con los 3 campos nuevos)
-- `src/components/OrderTracking.tsx` (render `trackingCard` + botón "Imprimir etiqueta")
-- `src/components/OrderTracking.module.css` (estilos `.tracking*`, `.printButton`)
+- `src/components/OrderTracking.tsx` (render `trackingCard`)
+- `src/components/OrderTracking.module.css` (estilos `.tracking*`)
 
 #### Cambios en flujo existente
 - El submit del checkout ya no manda `shippingCost` (lo calcula el server)
 - El summary del checkout ahora muestra `Envío · {nombre de zona}` en vez de solo "Envío"
 - `OrderTracking` muestra tracking card cuando hay carrier + tracking_number
-- `OrderTracking` muestra botón "Imprimir etiqueta" en estados post-pago
 
 #### Riesgos y mitigaciones
 | Riesgo | Mitigación |
 |---|---|
 | Tabla de CP desactualizada (nuevos CPs) | Fallback a `nacional` $5.000 cubre el caso |
 | Lookup servidor vs cliente desincronizado | Server recalcula siempre, ignora `shippingCost` del client |
-| Etiqueta se imprime mal en printers raras | `@page size` configurable, browser fallback a A4 |
 | Tracking paste manual → typos | El URL pattern se genera server-side, solo se pastea el número |
 | User sin CP o CP inválido | UI muestra "Envío estándar" + hint "Ingresá tu CP para ver el costo exacto" |
 
 #### Diferido a fase futura
-- Múltiples etiquetas por hoja A4 (flag `?layout=a4`)
 - Webhook de carrier para auto-update de `status='shipped'/'delivered'`
 - Multi-carrier en el checkout (la tabla `shipping_methods` ya está lista para esto)
 - EnvioPack cuando volumen supere 15/semana sostenidos — `getZoneForCP` se reemplaza por proxy a EnvioPack, OrderTracking recibe webhooks en vez del paste manual
@@ -574,9 +565,6 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 | `carrier='andreani'` y `tracking_number=null` | NO aparece card (gating requiere ambos) |
 | `carrier=null` y `tracking_number='TEST'` | NO aparece card |
 | `carrier='oca'` y `tracking_number='TEST'` | Aparece card con nombre fallback "oca" + link roto. **Esperado**: no se valida carrier contra whitelist, se confía en el paste admin. Corregir en Supabase. |
-
-##### Test 5 — Cross-check con etiqueta (Fase 3.6)
-- [ ] El botón "Imprimir etiqueta de envío" sigue apareciendo (no se oculta al agregar tracking)
 
 ##### Cleanup
 - [ ] Restaurar la orden: `carrier=null`, `tracking_number=null`, `shipped_at=null` para no dejar datos de prueba en la DB
@@ -639,7 +627,6 @@ Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 - `src/pages/api/checkout.ts` (guarda phone/province en `orderInsert`, llama `sendAdminOrderNotification` fire-and-forget)
 - `src/components/CheckoutForm.tsx` (campos phone/province, warning de mismatch, validación)
 - `src/components/CheckoutForm.module.css` (estilos `.warningCard*`)
-- `src/pages/pedido/[id]/etiqueta.astro` (muestra phone y province en la etiqueta)
 - `src/pages/api/orders/[id].ts` (query extendida con phone, province)
 
 #### Env vars necesarias
@@ -778,8 +765,6 @@ contexto si alguien toca esos archivos.
 | **C13** | `src/pages/api/webhooks/mercadopago.ts:verifyMpSignature` | Skip temporal de validación de firma para webhooks v3 con `console.warn` | MP envía webhooks v3 con un manifest distinto al que espera nuestra validación. La HMAC no matchea para v3 (mientras matchea perfecto para v1). Workaround: skip con `matchedTemplate: 'v3_skipped_temp'`. Mitigación: `payment.get()` valida con MP, `external_reference` valida con DB, UNIQUE constraint en `webhook_events` previene doble procesamiento. Fix definitivo: debug del manifest format de v3. |
 | **C14** | `src/pages/api/checkout.ts:54-61` | Server-side lookup de `shippingMethod` (zone id) → `getZoneById` + `getZoneCost`. Si la zone no existe, 400. | El client ya no manda `shippingCost`; el server lo computa desde el zone id para evitar que un client mande un shippingMethod arbitrario con costo trucado. El zone id es validado contra `SHIPPING_ZONES` (constante hardcoded, no DB) → no se puede inyectar. |
 | **C15** | `src/components/CheckoutForm.tsx:50-66` | Debounce 400ms del fetch a `/api/shipping/quote` cuando cambia `postalCode` | Evita N requests por cada tecla tipeada en el CP. Cleanup del timer en el `return` del `useEffect` para no actualizar state después de unmount. |
-| **C16** | `src/pages/pedido/[id]/etiqueta.astro:13-14` | `UUID_REGEX` + `EMAIL_REGEX` antes de cualquier query a la DB | Mismo patrón que C6. Si el id o el email no pasan el regex, redirect a `/pedido/[id]?error=invalid_request` sin tocar Supabase. |
-| **C17** | `src/pages/pedido/[id]/etiqueta.astro:48-54` | `timingSafeEqual` + dummy call cuando los buffers difieren en length | Anti-timing-attack en la verificación de email, mismo patrón que C5. El `timingSafeEqual(ab, ab)` mantiene tiempo constante si los emails tienen largo distinto. |
 | **C18** | `src/pages/api/checkout.ts:225-242` | `void sendAdminOrderNotification(...)` (fire-and-forget) | Notificación al admin no bloquea el checkout. Si Resend falla, el cliente igual completa la compra. |
 | **C19** | `src/lib/provinces.ts:detectProvinceFromCity` | Normalización NFD + lowercase antes de keyword match | "Córdoba" y "cordoba" matchean el mismo keyword. Resiliente a tildes y mayúsculas. |
 | **C20** | `src/components/CheckoutForm.tsx:60-76` | Province auto-fill solo si `!form.province` (no sobrescribe selección manual del user) | El user puede cambiar la provincia si la detección del CP está mal, y la app no la pisa. |

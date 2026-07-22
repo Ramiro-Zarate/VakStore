@@ -15,7 +15,7 @@ Tienda online de indumentaria deportiva **en producción con ventas reales**, de
 - **Checkout con Mercado Pago** (Checkout Pro): webhooks con firma HMAC, procesamiento idempotente, **reembolso automático** si falta stock al confirmar el pago
 - **Pago por transferencia** con 15% de descuento, auto-cancelación de órdenes impagas a las 72hs (Vercel Cron)
 - **Autenticación** con Supabase Auth (email/password + Google OAuth), base de datos PostgreSQL con políticas RLS
-- **Envíos**: cotización por zona según código postal, **etiqueta imprimible 10×15**, tracking con deep-link al carrier (Andreani / Correo Argentino)
+- **Envíos**: cotización por zona según código postal, tracking con deep-link al carrier (Andreani / Correo Argentino)
 - **Emails transaccionales** con Resend (confirmación, instrucciones de transferencia, cancelación) + notificación al admin
 - Compra como invitado con seguimiento de pedido por id + email (verificación timing-safe)
 - SEO y performance: 95+ en Google Lighthouse, imágenes lazy, CSP y headers de seguridad
