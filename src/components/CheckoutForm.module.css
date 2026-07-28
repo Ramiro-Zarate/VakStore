@@ -463,41 +463,95 @@
   font-weight: var(--weight-semibold);
 }
 
-.shippingCard {
+.shippingOptionsList {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-4) var(--space-5);
-  background-color: var(--color-accent-soft);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
 }
 
-.shippingCardHeader {
+.shippingOption {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-bg-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.shippingOption:hover {
+  border-color: var(--color-border-strong);
+}
+
+.shippingOptionActive {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-soft);
+}
+
+.shippingOptionMoto {
+  border-style: dashed;
+}
+
+.shippingOptionMoto.shippingOptionActive {
+  background-color: rgba(245, 158, 11, 0.08);
+  border-color: #f59e0b;
+  border-style: solid;
+}
+
+.shippingOptionInput {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.shippingOptionBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.shippingOptionHeader {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
-.shippingCardName {
+.shippingOptionName {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
 }
 
-.shippingCardPrice {
+.shippingOptionPrice {
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: var(--weight-bold);
-  color: var(--color-accent);
+  color: var(--color-text-primary);
   white-space: nowrap;
 }
 
-.shippingCardMeta {
+.shippingOptionMoto .shippingOptionPrice {
+  font-style: italic;
+  font-weight: var(--weight-medium);
+  font-size: var(--text-sm);
+  color: #f59e0b;
+}
+
+.shippingOptionMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -507,15 +561,25 @@
   margin: 0;
 }
 
-.shippingCardSep {
+.shippingOptionSep {
   opacity: 0.6;
 }
 
-.shippingCardHint {
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  margin: var(--space-1) 0 0;
-  line-height: var(--leading-snug);
+.shippingEmpty {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-bg-base);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.summaryMuted {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-weight: var(--weight-medium);
 }
 
 .warningCard {

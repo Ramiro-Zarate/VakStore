@@ -1,25 +1,26 @@
 import type { APIRoute } from 'astro'
-import { getShippingZonesForCP } from '../../../lib/shippingZones'
+import { getOptionsForCP, type ShippingOption } from '../../../lib/shippingOptions'
 
 export const prerender = false
 
 export const GET: APIRoute = async ({ url }) => {
   const cp = url.searchParams.get('cp') ?? ''
-
-  const { detected, options } = getShippingZonesForCP(cp)
-
+  const options = getOptionsForCP(cp)
+  const detected = options[0] ?? null
   return new Response(
-    JSON.stringify({
-      cp,
-      detected: { id: detected.id, name: detected.name, cost: detected.cost, eta: detected.eta },
-      options: options.map(z => ({
-        id: z.id,
-        name: z.name,
-        description: z.description,
-        cost: z.cost,
-        eta: z.eta
-      }))
-    }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
+    JSON.stringify({ cp, detected, options }),
+    {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=60'
+      }
+    }
   )
+}
+
+export type QuoteResponse = {
+  cp: string
+  detected: ShippingOption | null
+  options: ShippingOption[]
 }

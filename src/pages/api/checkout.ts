@@ -7,7 +7,7 @@ import { checkoutSchema } from '../../lib/checkoutSchema'
 import { processApprovedPayment } from '../../lib/orderProcessing'
 import { rateLimit, getClientIdentifier } from '../../lib/rateLimit'
 import { bankInfo, whatsappNumber, transferExpiryHours, TRANSFER_DISCOUNT } from '../../lib/bankInfo'
-import { getZoneById, getZoneCost } from '../../lib/shippingZones'
+import { getOptionById, isMotoOption } from '../../lib/shippingOptions'
 import { sendTransferInstructionsEmail, sendAdminOrderNotification } from '../../lib/email'
 import type { OrdersUpdate } from '../../lib/db'
 
@@ -51,14 +51,24 @@ export const POST: APIRoute = async ({ request }) => {
 
   const { items, customer, paymentMethod, shippingMethod } = parsed.data
 
-  const zone = getZoneById(shippingMethod)
-  if (!zone) {
+  const option = getOptionById(shippingMethod)
+  if (!option) {
     return new Response(
-      JSON.stringify({ error: `Zona de envío inválida: ${shippingMethod}` }),
+      JSON.stringify({ error: `Método de envío inválido: ${shippingMethod}` }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     )
   }
-  const shippingCost = getZoneCost(shippingMethod)
+
+  if (isMotoOption(shippingMethod) && paymentMethod !== 'transfer') {
+    return new Response(
+      JSON.stringify({
+        error: 'La motomensajería requiere pago por transferencia. Elegí "Transferencia" para continuar.'
+      }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  const shippingCost = option.price ?? 0
 
   const variantIds = items.map(i => i.variantId)
 
@@ -179,6 +189,7 @@ export const POST: APIRoute = async ({ request }) => {
     payment_method: paymentMethod,
     shipping_method: shippingMethod,
     shipping_cost: shippingCost,
+    carrier: option.carrier,
     phone: customer.phone,
     province: customer.province
   }
@@ -247,20 +258,23 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (isTransfer) {
     const whatsappDigits = whatsappNumber.replace(/[^\d]/g, '')
+    const shortOrderId = orderId.slice(0, 8).toUpperCase()
+    const isMoto = isMotoOption(shippingMethod)
     const totalFormatted = totalFinal.toLocaleString('es-AR', {
       style: 'currency',
       currency: 'ARS'
     })
-    const whatsappText = encodeURIComponent(
-      `Hola! Te paso el comprobante de mi pedido #${orderId.slice(0, 8).toUpperCase()} por ${totalFormatted}.`
-    )
-    const whatsappUrl = `https://wa.me/${whatsappDigits}?text=${whatsappText}`
+    const whatsappText = isMoto
+      ? `Hola! Quiero coordinar el envío por moto de mi pedido #${shortOrderId}.`
+      : `Hola! Te paso el comprobante de mi pedido #${shortOrderId} por ${totalFormatted}.`
+    const whatsappUrl = `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(whatsappText)}`
 
     console.log('[checkout] transfer order created', {
       orderId,
       total: totalFinal,
       discount: transferDiscount,
-      transferExpiresAt
+      transferExpiresAt,
+      carrier: option.carrier
     })
 
     await sendTransferInstructionsEmail({
@@ -272,7 +286,8 @@ export const POST: APIRoute = async ({ request }) => {
       discount: transferDiscount,
       totalAmount: totalFinal,
       bankInfo,
-      whatsappUrl
+      whatsappUrl,
+      mode: isMoto ? 'moto' : 'standard'
     })
 
     return new Response(

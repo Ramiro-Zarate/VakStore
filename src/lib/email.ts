@@ -42,6 +42,7 @@ export interface TransferInstructionsEmailData {
   totalAmount: number
   bankInfo: { alias: string; cbu: string; holder: string; cuit: string }
   whatsappUrl: string
+  mode: 'standard' | 'moto'
 }
 
 function formatPrice(value: number): string {
@@ -189,53 +190,72 @@ export async function sendOrderCancelledEmail(data: OrderCancelledEmailData): Pr
 }
 
 function buildTransferInstructionsEmail(data: TransferInstructionsEmailData): string {
-  const subtotalFormatted = data.subtotal.toLocaleString('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  })
-  const shippingFormatted = data.shipping.toLocaleString('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  })
-  const discountFormatted = data.discount.toLocaleString('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  })
-  const totalFormatted = data.totalAmount.toLocaleString('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  })
-  return `
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#131313;">
-      <h1 style="color:#970005;margin:0 0 16px;">Tu pedido está esperando el pago</h1>
-      <p>Hola ${data.customerName},</p>
-      <p>Recibimos tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> y quedó reservado. Para confirmarlo, hacé una transferencia con los datos de abajo.</p>
+  const subtotalFormatted = formatPrice(data.subtotal)
+  const shippingFormatted = formatPrice(data.shipping)
+  const discountFormatted = formatPrice(data.discount)
+  const totalFormatted = formatPrice(data.totalAmount)
+  const totalProductos = formatPrice(data.subtotal - data.discount)
+  const isMoto = data.mode === 'moto'
 
-      <h2 style="font-size:18px;margin:24px 0 8px;">Resumen</h2>
-      <table style="width:100%;border-collapse:collapse;">
+  const hero = isMoto
+    ? `<h1 style="color:#970005;margin:0 0 16px;">Coordinamos el envío por WhatsApp</h1>
+       <p>Hola ${data.customerName},</p>
+       <p>Recibimos tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> con <strong>motomensajería</strong>. Para calcular el costo del envío y coordinar el horario, escribinos por WhatsApp. Después te pasamos el monto final (productos + envío) y los datos para transferir.</p>`
+    : `<h1 style="color:#970005;margin:0 0 16px;">Tu pedido está esperando el pago</h1>
+       <p>Hola ${data.customerName},</p>
+       <p>Recibimos tu pedido <strong>#${data.orderId.slice(0, 8).toUpperCase()}</strong> y quedó reservado. Para confirmarlo, hacé una transferencia con los datos de abajo.</p>`
+
+  const summaryTable = isMoto
+    ? `<table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;color:#666;">Subtotal</td><td style="padding:6px 0;text-align:right;">${subtotalFormatted}</td></tr>
+        <tr><td style="padding:6px 0;color:#16a34a;">15% off en transferencia</td><td style="padding:6px 0;text-align:right;color:#16a34a;">-${discountFormatted}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">Envío (a coordinar)</td><td style="padding:6px 0;text-align:right;color:#666;">a definir</td></tr>
+        <tr><td style="padding:12px 0;color:#666;border-top:2px solid #131313;"><strong>Total productos</strong></td><td style="padding:12px 0;font-weight:bold;color:#970005;border-top:2px solid #131313;text-align:right;">${totalProductos}</td></tr>
+      </table>
+      <p style="margin-top:8px;font-size:13px;color:#666;">El total final (productos + envío) te lo pasamos por WhatsApp una vez coordinado el envío.</p>`
+    : `<table style="width:100%;border-collapse:collapse;">
         <tr><td style="padding:6px 0;color:#666;">Subtotal</td><td style="padding:6px 0;text-align:right;">${subtotalFormatted}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">Envío</td><td style="padding:6px 0;text-align:right;">${shippingFormatted}</td></tr>
         <tr><td style="padding:6px 0;color:#16a34a;">15% off en transferencia</td><td style="padding:6px 0;text-align:right;color:#16a34a;">-${discountFormatted}</td></tr>
         <tr><td style="padding:12px 0;color:#666;border-top:2px solid #131313;"><strong>Total a transferir</strong></td><td style="padding:12px 0;font-size:18px;font-weight:bold;color:#970005;border-top:2px solid #131313;text-align:right;">${totalFormatted}</td></tr>
-      </table>
+      </table>`
 
-      <h2 style="font-size:18px;margin:24px 0 8px;">Datos bancarios</h2>
-      <table style="width:100%;border-collapse:collapse;">
-        <tr><td style="padding:6px 0;color:#666;">Alias</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.alias}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">CBU</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cbu}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">Titular</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.holder}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">CUIT</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cuit}</td></tr>
-      </table>
+  const bankSection = isMoto
+    ? ''
+    : `<h2 style="font-size:18px;margin:24px 0 8px;">Datos bancarios</h2>
+       <table style="width:100%;border-collapse:collapse;">
+         <tr><td style="padding:6px 0;color:#666;">Alias</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.alias}</td></tr>
+         <tr><td style="padding:6px 0;color:#666;">CBU</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cbu}</td></tr>
+         <tr><td style="padding:6px 0;color:#666;">Titular</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.holder}</td></tr>
+         <tr><td style="padding:6px 0;color:#666;">CUIT</td><td style="padding:6px 0;font-weight:bold;">${data.bankInfo.cuit}</td></tr>
+       </table>`
 
-      <h2 style="font-size:18px;margin:24px 0 8px;">Confirmar el pago</h2>
-      <p>Una vez hecha la transferencia, mandá el comprobante por WhatsApp haciendo click en el botón:</p>
-      <p style="margin:16px 0;">
-        <a href="${data.whatsappUrl}" style="display:inline-block;padding:12px 24px;background-color:#25D366;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">Enviar comprobante por WhatsApp</a>
-      </p>
+  const ctaSection = isMoto
+    ? `<h2 style="font-size:18px;margin:24px 0 8px;">Coordinar el envío</h2>
+       <p>Hacé click en el botón para escribirnos por WhatsApp y definir el costo y horario de la moto:</p>
+       <p style="margin:16px 0;">
+         <a href="${data.whatsappUrl}" style="display:inline-block;padding:12px 24px;background-color:#25D366;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">Coordinar envío por WhatsApp</a>
+       </p>`
+    : `<h2 style="font-size:18px;margin:24px 0 8px;">Confirmar el pago</h2>
+       <p>Una vez hecha la transferencia, mandá el comprobante por WhatsApp haciendo click en el botón:</p>
+       <p style="margin:16px 0;">
+         <a href="${data.whatsappUrl}" style="display:inline-block;padding:12px 24px;background-color:#25D366;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;">Enviar comprobante por WhatsApp</a>
+       </p>`
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#131313;">
+      ${hero}
+
+      <h2 style="font-size:18px;margin:24px 0 8px;">Resumen</h2>
+      ${summaryTable}
+
+      ${bankSection}
+
+      ${ctaSection}
       <p style="margin-top:8px;font-size:13px;color:#666;">O seguí el estado de tu pedido en <a href="${import.meta.env.PUBLIC_SITE_URL || 'http://localhost:4321'}/pedido/${data.orderId}" style="color:#970005;">este enlace</a>.</p>
 
       <p style="margin-top:24px;font-size:13px;color:#666;">
-        <strong>Importante:</strong> tu pedido se cancela automáticamente a las 72hs si no recibimos el comprobante. Si te pasás del plazo y ya transferiste, escribinos y lo resolvemos.
+        <strong>Importante:</strong> tenés 72hs para ${isMoto ? 'coordinar el envío y mandar el comprobante' : 'mandar el comprobante'}. Si se pasa el plazo, el pedido se cancela automáticamente.
       </p>
     </div>
   `
@@ -250,10 +270,17 @@ export async function sendTransferInstructionsEmail(data: TransferInstructionsEm
     return
   }
 
+  const isMoto = data.mode === 'moto'
+  const shortId = data.orderId.slice(0, 8).toUpperCase()
+  const subject = isMoto
+    ? `Pedido #${shortId} - coordinar envío por moto`
+    : `Pedido #${shortId} - datos para transferencia`
+
   if (!resend) {
     console.log('[email] Resend not configured, would send transfer instructions:', {
       to: data.customerEmail,
-      subject: `Pedido #${data.orderId.slice(0, 8).toUpperCase()} - datos para transferencia`,
+      subject,
+      mode: data.mode,
       data
     })
     return
@@ -262,7 +289,7 @@ export async function sendTransferInstructionsEmail(data: TransferInstructionsEm
   const { error } = await resend.emails.send({
     from: fromEmail,
     to: data.customerEmail,
-    subject: `Pedido #${data.orderId.slice(0, 8).toUpperCase()} - datos para transferencia`,
+    subject,
     html: buildTransferInstructionsEmail(data)
   })
 

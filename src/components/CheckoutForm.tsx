@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useCartStore } from '../hooks/useCartStore'
 import { Field, Input, Select, Icon } from './Primitives'
 import { TRANSFER_DISCOUNT } from '../lib/bankInfo'
-import { DEFAULT_ZONE, type ShippingZone } from '../lib/shippingZones'
+import {
+  getOptionsForCP,
+  isMotoOption,
+  type ShippingOption
+} from '../lib/shippingOptions'
 import {
   PROVINCES,
   getProvinceFromCP,
@@ -36,8 +40,9 @@ const EMPTY_FORM: FormState = {
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 interface QuoteResponse {
-  detected: { id: string; name: string; cost: number; eta: string }
-  options: ShippingZone[]
+  cp: string
+  detected: ShippingOption | null
+  options: ShippingOption[]
 }
 
 const PROVINCE_OPTIONS = PROVINCES.map(p => ({ value: p.id, label: p.name }))
@@ -49,8 +54,8 @@ export default function CheckoutForm() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({})
 
-  const [shippingZone, setShippingZone] = useState<ShippingZone>(DEFAULT_ZONE)
-  const [shippingFallback, setShippingFallback] = useState(true)
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
+  const [selectedOptionId, setSelectedOptionId] = useState<string>('')
   const [cpMismatch, setCpMismatch] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -66,8 +71,8 @@ export default function CheckoutForm() {
     const cp = form.postalCode.trim()
     const digits = cp.replace(/\D/g, '')
     if (digits.length < 4) {
-      setShippingZone(DEFAULT_ZONE)
-      setShippingFallback(true)
+      setShippingOptions([])
+      setSelectedOptionId('')
       return
     }
     debounceRef.current = setTimeout(async () => {
@@ -75,18 +80,27 @@ export default function CheckoutForm() {
         const res = await fetch(`/api/shipping/quote?cp=${encodeURIComponent(cp)}`)
         if (!res.ok) throw new Error('quote failed')
         const data = (await res.json()) as QuoteResponse
-        const detected = data.options.find(o => o.id === data.detected.id) ?? DEFAULT_ZONE
-        setShippingZone(detected)
-        setShippingFallback(detected.id === DEFAULT_ZONE.id)
+        setShippingOptions(data.options)
+        setSelectedOptionId(prev => {
+          if (prev && data.options.some(o => o.id === prev)) return prev
+          return data.detected?.id ?? data.options[0]?.id ?? ''
+        })
       } catch {
-        setShippingZone(DEFAULT_ZONE)
-        setShippingFallback(true)
+        setShippingOptions([])
+        setSelectedOptionId('')
       }
     }, 400)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [form.postalCode])
+
+  useEffect(() => {
+    const selectedOption = shippingOptions.find(o => o.id === selectedOptionId)
+    if (selectedOption && isMotoOption(selectedOptionId) && form.paymentMethod !== 'transfer') {
+      setForm(prev => ({ ...prev, paymentMethod: 'transfer' }))
+    }
+  }, [selectedOptionId, shippingOptions, form.paymentMethod])
 
   useEffect(() => {
     const cp = form.postalCode.trim()
@@ -113,8 +127,10 @@ export default function CheckoutForm() {
     )
   }
 
+  const selectedOption = shippingOptions.find(o => o.id === selectedOptionId)
+  const isMoto = selectedOption ? isMotoOption(selectedOption.id) : false
+  const shipping = selectedOption?.price ?? 0
   const subtotal = getCartTotal()
-  const shipping = shippingZone.cost
   const isTransfer = form.paymentMethod === 'transfer'
   const transferDiscount = isTransfer ? subtotal * TRANSFER_DISCOUNT : 0
   const totalMp = subtotal + shipping
@@ -122,6 +138,7 @@ export default function CheckoutForm() {
   const activeTotal = isTransfer ? totalTransfer : totalMp
   const cityProvince = detectProvinceFromCity(form.city)
   const cpProvince = getProvinceFromCP(form.postalCode)
+  const hasShippingOptions = shippingOptions.length > 0
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -140,7 +157,9 @@ export default function CheckoutForm() {
     if (!form.address.trim()) errors.address = 'Ingresá tu dirección'
     if (!form.city.trim()) errors.city = 'Ingresá tu ciudad'
     if (!form.postalCode.trim()) errors.postalCode = 'Ingresá tu código postal'
+    else if (form.postalCode.replace(/\D/g, '').length < 4) errors.postalCode = 'Código postal inválido'
     if (!form.province) errors.province = 'Elegé tu provincia'
+    if (!hasShippingOptions) errors.postalCode = errors.postalCode ?? 'Ingresá un código postal válido'
     return errors
   }
 
@@ -167,7 +186,7 @@ export default function CheckoutForm() {
           })),
           customer: form,
           paymentMethod: form.paymentMethod,
-          shippingMethod: shippingZone.id
+          shippingMethod: selectedOptionId
         })
       })
 
@@ -302,7 +321,9 @@ export default function CheckoutForm() {
                 label="Código postal"
                 required
                 error={fieldErrors.postalCode}
-                hint={!shippingFallback ? `Detectamos zona: ${shippingZone.name}` : undefined}
+                hint={hasShippingOptions && selectedOption
+                  ? `Detectamos: ${selectedOption.name}`
+                  : 'Ingresá tu CP para ver las opciones de envío'}
               >
                 <Input
                   type="text"
@@ -325,7 +346,7 @@ export default function CheckoutForm() {
                 value={form.province}
                 onChange={e => handleChange('province', e.target.value)}
                 options={PROVINCE_OPTIONS}
-                placeholder="Elegé tu provincia"
+                placeholder="Elegí tu provincia"
                 invalid={!!fieldErrors.province}
                 autoComplete="address-level1"
               />
@@ -355,30 +376,49 @@ export default function CheckoutForm() {
               <span className={styles.sectionNumber} aria-hidden="true">3</span>
               <h2 className={styles.sectionTitle}>Método de envío</h2>
             </div>
-            <div className={styles.shippingCard}>
-              <div className={styles.shippingCardHeader}>
-                <span className={styles.shippingCardName}>{shippingZone.name}</span>
-                <span className={styles.shippingCardPrice}>
-                  ${shipping.toLocaleString('es-AR')}
-                </span>
+            {hasShippingOptions ? (
+              <div className={styles.shippingOptionsList} role="radiogroup" aria-label="Método de envío">
+                {shippingOptions.map(opt => {
+                  const isSelected = selectedOptionId === opt.id
+                  const isMotoOpt = isMotoOption(opt.id)
+                  return (
+                    <label
+                      key={opt.id}
+                      className={`${styles.shippingOption} ${isSelected ? styles.shippingOptionActive : ''} ${isMotoOpt ? styles.shippingOptionMoto : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="shippingMethod"
+                        value={opt.id}
+                        checked={isSelected}
+                        onChange={() => setSelectedOptionId(opt.id)}
+                        className={styles.shippingOptionInput}
+                        aria-label={`${opt.name}, ${opt.eta}`}
+                      />
+                      <div className={styles.shippingOptionBody}>
+                        <div className={styles.shippingOptionHeader}>
+                          <span className={styles.shippingOptionName}>{opt.name}</span>
+                          <span className={styles.shippingOptionPrice}>
+                            {opt.price !== null
+                              ? `$${opt.price.toLocaleString('es-AR')}`
+                              : 'A coordinar'}
+                          </span>
+                        </div>
+                        <p className={styles.shippingOptionMeta}>
+                          <span>{opt.eta}</span>
+                          <span className={styles.shippingOptionSep} aria-hidden="true">·</span>
+                          <span>{opt.description}</span>
+                        </p>
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
-              <p className={styles.shippingCardMeta}>
-                <span>{shippingZone.eta}</span>
-                <span className={styles.shippingCardSep} aria-hidden="true">·</span>
-                <span>
-                  {shippingFallback
-                    ? 'Tarifa estándar'
-                    : shippingZone.description}
-                </span>
+            ) : (
+              <p className={styles.shippingEmpty}>
+                Ingresá tu código postal para ver las opciones de envío disponibles.
               </p>
-              {shippingFallback && (
-                <p className={styles.shippingCardHint}>
-                  {form.postalCode.trim().replace(/\D/g, '').length < 4
-                    ? 'Ingresá tu código postal para ver el costo exacto.'
-                    : 'No pudimos identificar tu zona. Usamos tarifa estándar.'}
-                </p>
-              )}
-            </div>
+            )}
           </section>
 
           <section className={styles.section}>
@@ -387,23 +427,25 @@ export default function CheckoutForm() {
               <h2 className={styles.sectionTitle}>Método de pago</h2>
             </div>
             <div className={styles.radioGroup} role="radiogroup" aria-label="Método de pago">
-              <label className={`${styles.radioOption} ${form.paymentMethod === 'mercadopago' ? styles.radioOptionActive : ''}`}>
-                <div className={styles.radioOptionLeft}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="mercadopago"
-                    checked={form.paymentMethod === 'mercadopago'}
-                    onChange={() => setForm(prev => ({ ...prev, paymentMethod: 'mercadopago' }))}
-                    className={styles.radioInput}
-                    aria-label="Mercado Pago, tarjeta o Rapipago"
-                  />
-                  <span className={styles.radioLabel}>
-                    <span className={styles.radioTitle}>Mercado Pago</span>
-                    <span className={styles.radioHint}>Tarjeta, débito, Rapipago</span>
-                  </span>
-                </div>
-              </label>
+              {!isMoto && (
+                <label className={`${styles.radioOption} ${form.paymentMethod === 'mercadopago' ? styles.radioOptionActive : ''}`}>
+                  <div className={styles.radioOptionLeft}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="mercadopago"
+                      checked={form.paymentMethod === 'mercadopago'}
+                      onChange={() => setForm(prev => ({ ...prev, paymentMethod: 'mercadopago' }))}
+                      className={styles.radioInput}
+                      aria-label="Mercado Pago, tarjeta o Rapipago"
+                    />
+                    <span className={styles.radioLabel}>
+                      <span className={styles.radioTitle}>Mercado Pago</span>
+                      <span className={styles.radioHint}>Tarjeta, débito, Rapipago</span>
+                    </span>
+                  </div>
+                </label>
+              )}
               <label className={`${styles.radioOption} ${form.paymentMethod === 'transfer' ? styles.radioOptionActive : ''}`}>
                 <div className={styles.radioOptionLeft}>
                   <input
@@ -417,7 +459,9 @@ export default function CheckoutForm() {
                   />
                   <span className={styles.radioLabel}>
                     <span className={styles.radioTitle}>Transferencia</span>
-                    <span className={styles.radioHint}>CBU / Alias · 72hs para confirmar</span>
+                    <span className={styles.radioHint}>
+                      {isMoto ? 'CBU / Alias · 72hs para coordinar' : 'CBU / Alias · 72hs para confirmar'}
+                    </span>
                   </span>
                 </div>
               </label>
@@ -433,8 +477,9 @@ export default function CheckoutForm() {
                   </Icon>
                 </span>
                 <p className={styles.reminderText}>
-                  Después de transferir, mandá el comprobante por WhatsApp para
-                  confirmar tu pedido. Tenés 72hs para hacerlo o se cancela automáticamente.
+                  {isMoto
+                    ? 'Vamos a coordinar el envío por WhatsApp. Después de confirmar el costo de la moto, transferís todo junto (productos con 15% off + envío). Tenés 72hs o se cancela automáticamente.'
+                    : 'Después de transferir, mandá el comprobante por WhatsApp para confirmar tu pedido. Tenés 72hs para hacerlo o se cancela automáticamente.'}
                 </p>
               </div>
             )}
@@ -449,7 +494,9 @@ export default function CheckoutForm() {
             {submitting
               ? 'Procesando...'
               : form.paymentMethod === 'transfer'
-                ? 'Finalizar y ver datos de transferencia'
+                ? isMoto
+                  ? 'Finalizar y coordinar envío por WhatsApp'
+                  : 'Finalizar y ver datos de transferencia'
                 : 'Pagar con Mercado Pago'}
             {!submitting && (
               <Icon size={18} aria-hidden="true">
@@ -502,10 +549,19 @@ export default function CheckoutForm() {
             <span>Subtotal</span>
             <span>${subtotal.toLocaleString('es-AR')}</span>
           </div>
-          <div className={styles.summaryBreakdownRow}>
-            <span>Envío · {shippingZone.name}</span>
-            <span>${shipping.toLocaleString('es-AR')}</span>
-          </div>
+          {hasShippingOptions && selectedOption && (
+            <div className={styles.summaryBreakdownRow}>
+              <span>
+                Envío · {selectedOption.name}
+                {isMoto && ' (a coordinar)'}
+              </span>
+              <span>
+                {isMoto
+                  ? <em className={styles.summaryMuted}>A coordinar</em>
+                  : `$${shipping.toLocaleString('es-AR')}`}
+              </span>
+            </div>
+          )}
           {isTransfer && (
             <div className={`${styles.summaryBreakdownRow} ${styles.summaryDiscountRow}`}>
               <span>15% off en transferencia</span>

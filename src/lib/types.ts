@@ -56,7 +56,7 @@ export interface Order {
   shipping_cost: number | null
   bank_info_snapshot: BankInfoSnapshot | null
   transfer_expires_at: string | null
-  carrier: 'andreani' | 'correo_argentino' | null
+  carrier: 'correo_argentino' | 'motomensajeria' | null
   tracking_number: string | null
   shipped_at: string | null
   phone: string | null

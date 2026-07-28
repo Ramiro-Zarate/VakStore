@@ -114,7 +114,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     payment_intent_id: string | null
     transfer_expires_at: string | null
     bank_info_snapshot: { alias: string; cbu: string; holder: string; cuit: string } | null
-    carrier: string | null
+    carrier: 'correo_argentino' | 'motomensajeria' | null
     tracking_number: string | null
     shipped_at: string | null
     phone: string | null

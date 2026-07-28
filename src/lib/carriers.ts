@@ -1,4 +1,4 @@
-export type CarrierId = 'andreani' | 'correo_argentino'
+export type CarrierId = 'correo_argentino' | 'motomensajeria'
 
 export type Carrier = {
   id: CarrierId
@@ -7,15 +7,15 @@ export type Carrier = {
 }
 
 export const CARRIERS: Record<CarrierId, Carrier> = {
-  andreani: {
-    id: 'andreani',
-    name: 'Andreani',
-    trackingUrlPattern: 'https://www.andreani.com/envio/{nro}'
-  },
   correo_argentino: {
     id: 'correo_argentino',
     name: 'Correo Argentino',
     trackingUrlPattern: 'https://www.correoargentino.com.ar/consulta-de-envio?nro={nro}'
+  },
+  motomensajeria: {
+    id: 'motomensajeria',
+    name: 'Motomensajería',
+    trackingUrlPattern: ''
   }
 }
 
@@ -29,7 +29,8 @@ export function getTrackingUrl(
   carrierId: string,
   trackingNumber: string
 ): string | null {
+  if (carrierId === 'motomensajeria') return null
   const carrier = getCarrier(carrierId)
-  if (!carrier) return null
+  if (!carrier || !carrier.trackingUrlPattern) return null
   return carrier.trackingUrlPattern.replace('{nro}', encodeURIComponent(trackingNumber))
 }

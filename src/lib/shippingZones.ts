@@ -29,7 +29,7 @@ export const SHIPPING_ZONES: ReadonlyArray<ShippingZone> = [
     name: 'Buenos Aires interior',
     description: 'Resto de la provincia de Buenos Aires',
     cpRanges: [[1900, 1999], [7000, 7999]],
-    cost: 5500,
+    cost: 14000,
     eta: '48-72h hábiles'
   },
   {
