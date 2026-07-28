@@ -41,7 +41,8 @@ export async function signUp({ email, password, name }: SignUpData): Promise<{ u
     options: {
       data: {
         full_name: name
-      }
+      },
+      emailRedirectTo: `${getOrigin()}/auth/verificacion`
     }
   })
   return { user: data.user, session: data.session, error }

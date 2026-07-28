@@ -62,7 +62,10 @@ const store: AuthStore = {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } }
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: `${window.location.origin}/auth/verificacion`
+      }
     })
     return { error }
   },
