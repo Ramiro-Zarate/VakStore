@@ -182,7 +182,7 @@ Objetivo: cualquier visitante puede crear cuenta, loguearse, recuperar pass.
 
 | # | Tarea | Esfuerzo | Tipo | Bloqueado por |
 |---|---|---|---|---|
-| **A1** | Crear `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx` | 30 min | código | — |
+| **A1** | Crear `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx` | ✅ cerrado 2026-07-28 | código | — |
 | **A2** | Diagnosticar Google OAuth: config Supabase + Google Cloud | 5-20 min (dueño) | config | — |
 | **A3** | Probar signup email + recovery E2E | 10 min (dueño) | test | A1 |
 | **A4** | Fix config Google OAuth según A2 | 10-20 min (dueño) | config | A2 |
@@ -287,6 +287,7 @@ Backlog de Fase 3.9. Resuelve SEO + archivos públicos antes de empezar a posici
 - [x] **📝 Documentación — Multi-carrier shipping** — Decisión de sumar Correo Argentino y Uber Flash además de Andreani. Plan completo + 7 preguntas abiertas documentadas en §3.10. Sin código aún, esperando respuestas del dueño.
 - [x] **🟢 Reordenamiento del roadmap (2026-07-27)** — Plan priorizado en FASE A→E. Auth (FASE A) pasa a ser prioridad #1. Shipping (FASE C) re-evaluado: MercadoEnvíos reemplaza a multi-carrier hardcoded como opción recomendada. Backlog de Fase 3.9 movido a FASE D. Cleanup técnico a FASE E. Bugs R-404 y G-OAuth agregados a §🐛. Defensive check C27 agregado.
 - [x] **🚚 Decisión de envíos + implementación (2026-07-28)** — Reemplaza el plan multi-carrier de §3.10 (desestimado). Decisión: **Correo Argentino para todo el país + Motomensajería exclusiva para CABA/GBA** (coordinada por WhatsApp, pago obligatorio por transferencia). Andreani descartado completamente. Implementación: `src/lib/shippingOptions.ts` (nuevo) + `src/lib/carriers.ts` (drop andreani, add moto) + checkout con N cards según CP + MP desmontado cuando se elige moto + email dedicado con subject "coordinar envío por moto" + OrderTracking con nuevo statusHero `statusHeroMoto` (oculta datos bancarios hasta que admin setee `shipping_cost` post-WA). Migración 005 extiende el CHECK de `orders.carrier` para aceptar `'motomensajeria'` y nulifica `'andreani'` viejo. **El 15% off por transferencia sigue aplicando SOLO al subtotal de productos**, no al envío (ni para Correo Argentino ni para Motomensajería). En moto: subtotal × 0.85 + costo_moto_coordinado (transferencia). Schema sin cambios nuevos. Admin tool para confirmar pago moto: manual en Supabase Dashboard + `npm run confirm-order` (mismo flow que transfer estándar, con paso extra de UPDATE `shipping_cost` y `total_amount` post-coordinación).
+- [x] **🔐 Auth: password recovery (FASE A1 cerrado, 2026-07-28)** — Creada página `/auth/update-password` + componente `UpdatePasswordForm` (8 chars min, confirm password, session check on mount → redirect a `/login?error=invalid_recovery_link` si no hay sesión). Submit → `supabase.auth.updateUser({ password })` → redirect a `/login?reset=ok`. LoginForm ahora muestra mensaje contextual para los query params (`?reset=ok` = success verde, `?error=invalid_recovery_link` = error específico). **C27 cerrado junto al bug**: `UPDATE_PASSWORD_PATH` + `AUTH_CALLBACK_PATH` centralizados en `src/lib/auth.ts` con helper `getOrigin()` SSR-safe. AuthStore importa de `auth.ts` en vez de hardcodear. Resuelve R-404. Pendiente: A3 test E2E del dueño, A2/A4 Google OAuth config.
 
 ### ⏳ Fase 3.10 — Multi-carrier shipping (DESESTIMADO 2026-07-28)
 
@@ -398,6 +399,69 @@ hardcoded) o 3-4 hs (Opción B DB-driven).
 - Multi-carrier en checkout con MercadoEnvíos (envío nativo de Mercado Pago)
 - Panel admin propio para editar precios y gestionar órdenes (hoy Supabase Dashboard + CLI)
 - Auto-update de `status='shipped'/'delivered'` vía webhooks del carrier (hoy paste manual)
+
+### 📮 Integración futura con API de MiCorreo (pendiente de API key)
+
+**Estado**: 🟡 Bloqueado. Esperando que el dueño obtenga la API key de MiCorreo
+(API moderna B2C de Correo Argentino). Cuando llegue, se reemplaza el pricing
+hardcoded de `shippingZones.ts` por cotización en vivo desde la API.
+
+#### Decisiones tomadas (2026-07-28)
+- **API específica**: MiCorreo (la plataforma B2C moderna de Correo Argentino).
+  Necesitamos el doc de la API cuando llegue la key (probablemente Bearer token,
+  request con CP + peso + dimensiones, response con precio + ETA).
+- **Pesos por categoría** (Opción C): camiseta, short y campera con pesos distintos
+  definidos en una constante. Medidas estándar (a definir cuando se sepa la API).
+- **Alcance v1**: solo cotización en checkout. Tracking + etiqueta se quedan manuales
+  (admin sigue operando desde el panel de CA). Cuando el volumen lo justifique, sumar
+  tracking y generación de etiqueta.
+- **Fallback si la API falla**: tratar como moto flow. La UI muestra "No pudimos
+  calcular el envío, coordinamos por WhatsApp" y obliga a pagar con transferencia
+  (mismo patrón que motomensajería). El admin coordina por WA y edita
+  `shipping_cost` y `total_amount` en Supabase Dashboard. Decisión del dueño
+  2026-07-28: "mejor coordinar por WhatsApp" antes que degradar a precios hardcoded.
+
+#### Decisiones pendientes
+- **Caching**: TBD. 24h en memoria vs Redis vs sin cache.
+- **Tracking + label integration**: diferido. Admin sigue pegando `tracking_number` a
+  mano en Supabase Dashboard (flow actual de Fase 3.6).
+
+#### Plan tentativo (cuando llegue la key)
+
+1. `src/lib/correoArgentino.ts` — cliente MiCorreo API + tipos.
+2. `src/lib/correoArgentinoCache.ts` — cache CP+weight → price (TTL ~24h, opcional).
+3. Env var: `CORREO_ARGENTINO_API_KEY` (server only).
+4. Modificar `/api/shipping/quote`:
+   - Intentar MiCorreo API primero.
+   - Si falla → cambiar el resultado a "fallback mode": la option de correo muestra
+     `price: null` (igual que moto) + flag `source: 'fallback'`. El checkout muestra
+     la UI de "coordinar por WhatsApp" en lugar del precio.
+   - Forzar `paymentMethod='transfer'` si la option es fallback.
+5. UI: mostrar "Precio real de Correo Argentino" si la API responde OK, o
+   "Coordinamos por WhatsApp" si la API falla. Mismo render que moto.
+6. Logging de fallos para detectar rate limits / downtime.
+7. (Opcional) Cron que refresca precios cada 24h para tener cache caliente.
+
+#### Impacto en código actual
+- `shippingOptions.ts` se mantiene tal cual (capa "1 zona → N carriers"). Agregar
+  un flag opcional `source?: 'api' | 'fallback' | 'hardcoded'` en `ShippingOption`.
+- `shippingZones.ts` pasa a ser **fuente secundaria** (precio "hardcoded" cuando
+  la API está OK pero para fallback y zonas no soportadas por MiCorreo).
+- El checkout UI necesita un nuevo branch: si la option tiene `source='fallback'`,
+  mostrar la misma card que moto (dashed border ámbar, "A coordinar").
+- El OrderTracking ya tiene el statusHeroMoto que se puede reutilizar para
+  fallback (mismo flow: coordinar por WA, transfer, admin edita shipping_cost).
+- El email ya tiene el branch `mode: 'moto'` que se puede reutilizar para fallback.
+  Considerar agregar un `mode: 'moto' | 'fallback'` o unificar todo bajo un solo
+  `mode: 'coordinate_by_wa'`.
+- Moto no se toca (es flow aparte, no pasa por CA).
+
+#### Diferido a fase futura
+- Webhook de MiCorreo para auto-update de `status='shipped'/'delivered'` (hoy paste
+  manual en Supabase Dashboard, flow de Fase 3.6).
+- Auto-generación de etiqueta PDF desde la API (hoy la da el panel de CA).
+- Migración a `product_variants.weight` + `product_variants.dimensions` (Opción B del
+  Q2) si se necesita más precisión que las medidas estándar por categoría.
 
 ### ✅ Fase 0 — RLS fix (cerrado)
 - [x] Drop policies existentes (`Users can insert/view own orders`, etc.)
@@ -886,7 +950,7 @@ new row for relation "orders" violates check constraint "orders_status_check"
 **Fix planeado (NO implementado)**: ver `audit/post-compra-2026-06-11.md` sección "Plan de fix merchant_order". Implementación diferida — `MP_MOCK_MODE` funciona en paralelo como path de validación.
 
 #### 🔴 Alta prioridad (afectan directamente al cliente)
-- [ ] **R-404** — *Descubierto 2026-07-27.* Password recovery rota. `src/lib/auth.ts:67` y `src/stores/AuthStore.ts:86` apuntan a `/auth/update-password` después del reset, pero esa página **no existe** (verificado: `src/pages/auth/` solo tiene `callback.astro`, `recover.astro`, `verificacion.astro`). Resultado: el link del email de recuperación → 404. **Fix:** crear `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx`. El form debe leer la sesión activa (el link de Supabase ya creó una sesión de recovery), mostrar input de nueva contraseña, llamar `supabase.auth.updateUser({ password })`, redirect a `/login?reset=ok`. Sin sesión → redirect a `/login?error=invalid_recovery_link`. Estimado: 30 min. Resuelve FASE A1.
+- [x] **R-404** — *Cerrado 2026-07-28.* Creado `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx` (8 chars min, confirm password, session check on mount → redirect a `/login?error=invalid_recovery_link` sin sesión). LoginForm ahora muestra mensaje contextual para `?reset=ok` (success) y `?error=invalid_recovery_link` (error específico). C27 también cerrado: `UPDATE_PASSWORD_PATH` + `AUTH_CALLBACK_PATH` centralizados en `src/lib/auth.ts`, AuthStore importa de ahí en vez de hardcodear. Pendiente: A3 test E2E del dueño, A2/A4 config Google OAuth.
 - [ ] **G-OAuth** — *Descubierto 2026-07-27.* Click "Continuar con Google" en `/login` no redirige a Google. El código parece OK (`AuthStore.ts:73-78` usa `signInWithOAuth({ provider: 'google', redirectTo: '/auth/callback' })` + `callback.astro` hace `exchangeCodeForSession`). 99% problema de config aguas arriba:
   1. Google provider no habilitado en Supabase (Authentication → Providers → Google → toggle off)
   2. Faltan Client ID/Secret en Supabase (o son inválidos)
@@ -957,7 +1021,7 @@ contexto si alguien toca esos archivos.
 | **C24** | `src/styles/a11y.css:1-26` | Skip-link con `opacity:0` + `pointer-events:none` y solo `:focus-visible` (no `:focus`) | El patrón `transform: translateY(-200%)` + `:focus` hacía que el skip-link apareciera al volver con back/forward del browser o cargar con `#hash` en URL. Ver Fase 3.8. |
 | **C25** | `src/pages/api/products/index.ts:18-23` | Sanitización de `q` (search query): trim + slice 100 chars + remover `,."()\\` antes de pasar a PostgREST `.or()` | Defensivo contra inputs raros. `%` y `_` se mantienen como wildcards de ILIKE (feature). El `.or()` parsea el string con sintaxis PostgREST, por eso hay que remover los chars que romperían el parse. Ver Fase 3.8. |
 | **C26** | `src/components/SearchBar.tsx:36-41` | Submit hace `window.location.href` (no `pushState` + `setFilters`) | El SearchBar está en el Nav y no escucha `filterschange`. Si se removiera `q` desde el FilterSidebar con `pushState`, el input del Nav quedaría desincronizado. `window.location.href` recarga la página y sincroniza todo. |
-| **C27** | `src/lib/auth.ts:67` + `src/stores/AuthStore.ts:86` | `redirectTo: '/auth/update-password'` hardcoded en 2 lugares | Duplicación: si se cambia la ruta hay que tocar ambos. Considerar centralizar en constante (ej. `src/lib/auth.ts:export const UPDATE_PASSWORD_PATH = '/auth/update-password'`). Descubierto al diagnosticar R-404 (la ruta apunta a una página inexistente). |
+| **C27** | `src/lib/auth.ts` (constantes) | `UPDATE_PASSWORD_PATH` + `AUTH_CALLBACK_PATH` exportadas | Resuelto junto a R-404 (2026-07-28). AuthStore importa de `auth.ts` en vez de hardcodear. Helper `getOrigin()` agregado (SSR-safe: `window.location.origin` en cliente, `PUBLIC_SITE_URL` en server). |
 
 ### ✅ Fase 3.8 — Buscador + Single Source of Truth en ligas + cleanup UX (2026-07-01)
 

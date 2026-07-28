@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { UPDATE_PASSWORD_PATH, AUTH_CALLBACK_PATH } from '../lib/auth'
 import type { User, Session } from '@supabase/supabase-js'
 
 type AuthListener = (user: User | null) => void
@@ -14,6 +15,7 @@ interface AuthStore {
   signInWithGoogle: () => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
   resetPassword: (email: string) => Promise<{ error: any }>
+  updatePassword: (newPassword: string) => Promise<{ error: any }>
 }
 
 const listeners = new Set<AuthListener>()
@@ -73,7 +75,7 @@ const store: AuthStore = {
   async signInWithGoogle() {
     return await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
+      options: { redirectTo: `${window.location.origin}${AUTH_CALLBACK_PATH}` }
     })
   },
 
@@ -83,8 +85,12 @@ const store: AuthStore = {
 
   async resetPassword(email: string) {
     return await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/update-password`
+      redirectTo: `${window.location.origin}${UPDATE_PASSWORD_PATH}`
     })
+  },
+
+  async updatePassword(newPassword: string) {
+    return await supabase.auth.updateUser({ password: newPassword })
   }
 }
 

@@ -11,6 +11,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
   resetPassword: (email: string) => Promise<{ error: any }>
+  updatePassword: (newPassword: string) => Promise<{ error: any }>
 }
 
 export function useAuth(): AuthState {
@@ -38,6 +39,7 @@ export function useAuth(): AuthState {
     signIn: authStore.signIn.bind(authStore),
     signInWithGoogle: authStore.signInWithGoogle.bind(authStore),
     signOut: authStore.signOut.bind(authStore),
-    resetPassword: authStore.resetPassword.bind(authStore)
+    resetPassword: authStore.resetPassword.bind(authStore),
+    updatePassword: authStore.updatePassword.bind(authStore)
   }
 }

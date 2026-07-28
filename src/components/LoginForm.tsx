@@ -12,13 +12,21 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const oauthError = params.get('error')
-    if (oauthError) {
+    const reset = params.get('reset')
+    if (reset === 'ok') {
+      setInfoMessage('Contraseña cambiada con éxito. Iniciá sesión con tu nueva contraseña.')
+      window.history.replaceState({}, '', '/login')
+    } else if (oauthError === 'invalid_recovery_link') {
+      setError('El enlace de recuperación es inválido o expiró. Pedí uno nuevo desde "¿Olvidaste tu contraseña?".')
+      window.history.replaceState({}, '', '/login')
+    } else if (oauthError) {
       setError(decodeURIComponent(oauthError))
       window.history.replaceState({}, '', '/login')
     }
@@ -131,6 +139,16 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className={styles.form} noValidate>
+          {infoMessage && (
+            <div className={`${styles.alert} ${styles.alertInfo}`} role="status">
+              <span className={styles.alertIcon} aria-hidden="true">
+                <Icon size={16}>
+                  <polyline points="20 6 9 17 4 12" />
+                </Icon>
+              </span>
+              <span>{infoMessage}</span>
+            </div>
+          )}
           {error && (
             <div className={`${styles.alert} ${styles.alertError}`} role="alert">
               <span className={styles.alertIcon} aria-hidden="true">

@@ -1,6 +1,14 @@
 import { supabase } from './supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
+export const UPDATE_PASSWORD_PATH = '/auth/update-password'
+export const AUTH_CALLBACK_PATH = '/auth/callback'
+
+function getOrigin(): string {
+  if (typeof window !== 'undefined') return window.location.origin
+  return import.meta.env.PUBLIC_SITE_URL || ''
+}
+
 export interface AuthUser {
   id: string
   email: string
@@ -51,7 +59,7 @@ export async function signInWithGoogle(): Promise<{ error: any }> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`
+      redirectTo: `${getOrigin()}${AUTH_CALLBACK_PATH}`
     }
   })
   return { error }
@@ -64,7 +72,7 @@ export async function signOut(): Promise<{ error: any }> {
 
 export async function resetPassword({ email }: ResetPasswordData): Promise<{ error: any }> {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/update-password`
+    redirectTo: `${getOrigin()}${UPDATE_PASSWORD_PATH}`
   })
   return { error }
 }

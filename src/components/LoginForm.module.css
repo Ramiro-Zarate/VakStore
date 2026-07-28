@@ -149,10 +149,20 @@
   color: var(--color-text-primary);
 }
 
+.alertInfo {
+  background-color: var(--color-success-soft);
+  border: 1px solid var(--color-success);
+  color: var(--color-text-primary);
+}
+
 .alertIcon {
   color: var(--color-error);
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+.alertInfo .alertIcon {
+  color: var(--color-success);
 }
 
 .submit {
