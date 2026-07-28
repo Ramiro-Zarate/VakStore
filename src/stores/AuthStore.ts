@@ -72,10 +72,11 @@ const store: AuthStore = {
     return { error }
   },
 
-  async signInWithGoogle() {
+  async signInWithGoogle(next?: string) {
+    const params = next ? `?next=${encodeURIComponent(next)}` : ''
     return await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}${AUTH_CALLBACK_PATH}` }
+      options: { redirectTo: `${window.location.origin}${AUTH_CALLBACK_PATH}${params}` }
     })
   },
 

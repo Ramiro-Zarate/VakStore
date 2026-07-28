@@ -60,7 +60,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const handleGoogleSignIn = async () => {
     setError(null)
     setLoading(true)
-    const { error } = await signInWithGoogle()
+    const params = new URLSearchParams(window.location.search)
+    const next = params.get('redirect') || undefined
+    const { error } = await signInWithGoogle(next)
     if (error) {
       console.error('[Login] Google signIn error:', error)
       setError(error.message || 'Error con Google')

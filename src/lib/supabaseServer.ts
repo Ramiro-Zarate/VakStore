@@ -31,8 +31,8 @@ export function getSupabaseServer(ctx: AstroLike): {
         return cookies
       },
       setAll(cookiesToSet) {
-        for (const { name, value } of cookiesToSet) {
-          ctx.cookies.set(name, value, { path: '/' })
+        for (const { name, value, options } of cookiesToSet) {
+          ctx.cookies.set(name, value, options)
         }
       }
     }

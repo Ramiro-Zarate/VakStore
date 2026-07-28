@@ -55,11 +55,12 @@ export async function signIn({ email, password }: SignInData): Promise<{ user: U
   return { user: data.user, error }
 }
 
-export async function signInWithGoogle(): Promise<{ error: any }> {
+export async function signInWithGoogle(next?: string): Promise<{ error: any }> {
+  const params = next ? `?next=${encodeURIComponent(next)}` : ''
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${getOrigin()}${AUTH_CALLBACK_PATH}`
+      redirectTo: `${getOrigin()}${AUTH_CALLBACK_PATH}${params}`
     }
   })
   return { error }

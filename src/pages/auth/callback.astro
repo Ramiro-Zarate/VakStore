@@ -1,5 +1,28 @@
 ---
 import Layout from '../../layouts/Layout.astro'
+import { getSupabaseServer } from '../../lib/supabaseServer'
+
+export const prerender = false
+
+const oauthError =
+  Astro.url.searchParams.get('error_description') || Astro.url.searchParams.get('error')
+
+if (oauthError) {
+  return Astro.redirect(`/login?error=${encodeURIComponent(oauthError)}`)
+}
+
+const code = Astro.url.searchParams.get('code')
+const next = Astro.url.searchParams.get('next') || '/'
+
+if (code) {
+  const { supabase } = getSupabaseServer(Astro)
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  if (error) {
+    return Astro.redirect(`/login?error=${encodeURIComponent(error.message)}`)
+  }
+}
+
+return Astro.redirect(next)
 ---
 
 <Layout title="Autenticando... | Vak Store">
@@ -7,36 +30,6 @@ import Layout from '../../layouts/Layout.astro'
     <p>Completando autenticación...</p>
   </div>
 </Layout>
-
-<script>
-  import { supabase } from '../../lib/supabase'
-
-  async function handleCallback() {
-    const url = new URL(window.location.href)
-    const code = url.searchParams.get('code')
-    const oauthError = url.searchParams.get('error_description') || url.searchParams.get('error')
-
-    if (oauthError) {
-      console.error('[OAuth callback] error:', oauthError)
-      window.location.href = `/login?error=${encodeURIComponent(oauthError)}`
-      return
-    }
-
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-      if (error) {
-        console.error('[OAuth callback] exchange error:', error)
-        window.location.href = `/login?error=${encodeURIComponent(error.message)}`
-        return
-      }
-    }
-
-    const { data: { session } } = await supabase.auth.getSession()
-    window.location.href = session ? '/' : '/login'
-  }
-
-  handleCallback()
-</script>
 
 <style>
   .callback-page {
