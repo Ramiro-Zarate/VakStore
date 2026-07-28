@@ -15,6 +15,7 @@ function getPasswordStrength(p: string): { score: 0 | 1 | 2 | 3; label: string }
   if (p.length >= 6) score++
   if (p.length >= 10) score++
   if (/[A-Z]/.test(p) && /[a-z]/.test(p) && /\d/.test(p)) score++
+  if (score === 0) return { score: 0, label: 'Muy débil' }
   if (score === 1) return { score: 1, label: 'Débil' }
   if (score === 2) return { score: 2, label: 'Aceptable' }
   return { score: 3, label: 'Fuerte' }
@@ -145,8 +146,11 @@ export default function RegisterForm({ onSuccess }: RegisterFormProps) {
               invalid={!!fieldErrors.password}
               required
             />
-            {password.length > 0 && (
-              <div className={styles.strengthMeter} aria-hidden="true">
+            <div
+              aria-hidden="true"
+              style={{ display: password.length > 0 ? 'block' : 'none' }}
+            >
+              <div className={styles.strengthMeter}>
                 <div className={styles.strengthBars}>
                   <span className={`${styles.strengthBar} ${strength.score >= 1 ? strengthClass : ''}`} />
                   <span className={`${styles.strengthBar} ${strength.score >= 2 ? strengthClass : ''}`} />
@@ -154,7 +158,7 @@ export default function RegisterForm({ onSuccess }: RegisterFormProps) {
                 </div>
                 <span className={styles.strengthLabel}>{strength.label}</span>
               </div>
-            )}
+            </div>
           </Field>
 
           <Field label="Confirmar contraseña" required error={fieldErrors.confirmPassword}>
