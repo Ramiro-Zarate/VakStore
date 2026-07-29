@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 import { Field, PasswordInput, Icon } from './Primitives'
 import styles from './UpdatePasswordForm.module.css'
 
@@ -19,11 +20,34 @@ export default function UpdatePasswordForm() {
 
   useEffect(() => {
     if (!initialized) return
-    if (!user) {
-      window.location.href = '/login?error=invalid_recovery_link'
+
+    let resolved = false
+
+    if (user) {
+      setSessionReady(true)
       return
     }
-    setSessionReady(true)
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') && session) {
+        resolved = true
+        setSessionReady(true)
+        const url = new URL(window.location.href)
+        url.searchParams.delete('code')
+        window.history.replaceState({}, '', url.toString())
+      }
+    })
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        window.location.href = '/login?error=invalid_recovery_link'
+      }
+    }, 3000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [initialized, user])
 
   const validate = (): typeof fieldErrors => {
