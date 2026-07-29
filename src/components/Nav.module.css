@@ -2,6 +2,7 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  width: 100%;
   background-color: rgba(10, 10, 10, 0.85);
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
@@ -17,6 +18,7 @@
   margin: 0 auto;
   padding: var(--space-3) var(--space-4);
   min-height: var(--header-height);
+  min-width: 0;
 }
 
 .searchSlot {

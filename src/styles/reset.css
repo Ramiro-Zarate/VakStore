@@ -13,6 +13,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overflow-x: clip;
   scroll-behavior: smooth;
   scroll-padding-top: var(--header-height);
 }
@@ -35,7 +36,17 @@ body {
   font-family: var(--font-body);
   background-color: var(--color-bg-base);
   color: var(--color-text-primary);
-  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
 }
 
 img, picture, video, canvas, svg {

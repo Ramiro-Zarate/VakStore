@@ -65,11 +65,13 @@ const siteName = 'Vak Store'
   </head>
   <body>
     <a href="#main" class="skip-link">Saltar al contenido</a>
-    <Nav />
-    <main id="main" tabindex="-1">
-      <slot />
-    </main>
-    <Footer />
+    <div class="page">
+      <Nav />
+      <main id="main" tabindex="-1">
+        <slot />
+      </main>
+      <Footer />
+    </div>
     <WhatsAppFloat />
     <CookieBanner client:only="react" />
   </body>
