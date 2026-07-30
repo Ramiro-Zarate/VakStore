@@ -164,11 +164,11 @@ MP redirige a back_urls.success → /pedido/[orderId]
 |---|---|---|
 | Auth email | Sin probar E2E | 🟡 probable config |
 | Auth Google | No redirige | 🟡 probable config |
-| Recovery pass | Rota (404 `/auth/update-password`) | 🔴 bug código (R-404) |
+| Recovery pass | ✅ Cerrado (R-404) | — |
 | Checkout guest + MP | ✅ E2E validado | — |
 | Checkout transfer | ⚠️ Email no llega a clientes reales (Resend no verificado) | 🟡 bug 3.5 |
-| Tracking | ✅ Andreani + Correo Argentino | — |
-| Shipping multi-carrier | ❌ No implementado (decisión pendiente, ver §6.4) | 🟢 opcional |
+| Tracking | ✅ Sin tracking number (admin setea `shipped` manual) | — |
+| Shipping CA + Moto | ✅ CA nacional + Moto CABA/GBA (decisión final 2026-07-30) | — |
 | Emails a clientes | ⚠️ Solo llegan a vakindumentaria@gmail.com | 🟡 bug 3.5 |
 | Stock decrement | ✅ Validado | — |
 | Refund oversell | ✅ Validado | — |
@@ -248,7 +248,7 @@ Objetivo: mails reales a clientes + notif al admin funcional.
 
 **Recomendación**: MercadoEnvíos. Cero código nuevo, MP ya lo integró. Si el volumen crece (>15/semana) o se quiere ofrecer opciones sin pasar por MP, evaluar EnvioPack.
 
-**Estado**: 🟡 Pendiente de decisión final del dueño (confirmar fee real de MercadoEnvíos). Sin código escrito aún. Ver §3.10 para el plan original (multi-carrier) que queda como referencia pero se desestima.
+**Estado**: ✅ Cerrado 2026-07-30. Decisión final pre-launch: **Correo Argentino manual "particular" para todo el país + Motomensajería para CABA/GBA** (coordinada por WhatsApp, pago por transferencia). Pricing hardcoded por zona en `src/lib/shippingZones.ts`. Sin API, sin etiqueta auto, sin tracking number real. Admin setea `status='shipped'` manual cuando lleva el paquete al CA. Ver §6.7 "Decisión final de envíos pre-launch (2026-07-30)" para el detalle de implementación, pricing por zona y admin workflow. El plan multi-carrier de §3.10 queda como referencia histórica.
 
 ### 6.5 🟩 FASE D — Polish pre-launch (1 sesión, 2-3 hs)
 
@@ -292,6 +292,32 @@ Backlog de Fase 3.9. Resuelve SEO + archivos públicos antes de empezar a posici
 - [x] **🎨 P-Focus cerrado (2026-07-28)** — Bug de UX en `/registro`: el input de contraseña perdía focus al tipear la primera letra, obligando al user a hacer click de nuevo para seguir tipeando (experiencia tosca). Causa raíz: `Field` (`src/components/Primitives/Field.tsx:46-65`) tiene 3 code paths según `Children.toArray(children).length`. El strength meter de RegisterForm se renderizaba con `{password.length > 0 && <div>...</div>}`, cambiando el length de children entre renders. React re-montaba el `PasswordInput` (y su `<input>` interno) → focus perdido. Fix: envolver el strength meter en un `<div>` siempre presente con `style={{ display: password.length > 0 ? 'block' : 'none' }}`. Estructura estable, reconciliación preserva la instancia, focus intacto. C30 cerrado.
 - [x] **🎨 P-Strength cerrado (2026-07-28)** — Bug en `RegisterForm.getPasswordStrength`: contraseñas de 1-5 chars se mostraban como "Fuerte" porque el `if (score === 1)` y `if (score === 2)` no matcheaban para `score=0` y la función caía al `return { score: 3, label: 'Fuerte' }` final (fall-through). Fix: agregar caso explícito `if (score === 0) return { score: 0, label: 'Muy débil' }` antes de los otros. C31 cerrado.
 - [x] **🔐 V-Login cerrado (2026-07-28)** — Bug de UX en el flow de signup: después de click el link de verificación del email, Supabase redirigía a la Site URL (la home) → user sin loguear, tenía que ir a `/login` manualmente. Causa: `signUp` no seteaba `emailRedirectTo` y `/auth/verificacion.astro` era estática (no procesaba la sesión del hash). Fix: 2 cambios. (1) `emailRedirectTo: ${getOrigin()}/auth/verificacion` en `signUp` (AuthStore + auth.ts). (2) `/auth/verificacion` ahora es un React component (`src/components/Verificacion.tsx`) que detecta la sesión con `supabase.auth.getSession()` en mount — si hay sesión redirige a `/`, si no muestra el mensaje de "revisá tu email". C32 cerrado.
+- [x] **📦 Decisión final de envíos pre-launch (2026-07-30) — CA manual "particular"** — Refina la decisión del 2026-07-28. **Modelo final**: Correo Argentino para todo el país (sin API, sin etiqueta auto, sin tracking number real) + Motomensajería exclusiva para CABA/GBA (coordinada por WhatsApp, pago obligatorio por transferencia). Pricing hardcoded por zona en `src/lib/shippingZones.ts`. Status flow (ver tabla completa abajo). Admin workflow: lleva el paquete al CA → `UPDATE orders SET status='shipped', shipped_at=now()` en Supabase Dashboard (sin pegar `tracking_number`). Cuando confirma entrega → `status='delivered'`. El cliente ve "Tu pedido está en camino con Correo Argentino" sin link. **Diferencia clave vs 2026-07-28**: ya no se captura ni se muestra número de tracking. La card violeta con link a la página del carrier queda deshabilitada por gating natural (`tracking_number IS NULL`). Ver `src/lib/shippingZones.ts` para el detalle de zonas y precios, `src/components/OrderTracking.tsx:460-481` para el render de `shipped`, y `src/components/OrderTracking.tsx:292-335` para el flow de moto (que sí se mantiene). **Pendiente a verificar post-launch**: si CA emite algún código/comprobante de admisión en modalidad particular, y si conviene capturarlo y mostrárselo al cliente. No bloquea el launch.
+
+#### Tabla de status (modelo final 2026-07-30)
+
+| Status | Quién lo setea | Cuándo | Lo que ve el cliente |
+|---|---|---|---|
+| `pending` | `api/checkout.ts:183` | Cliente eligió MP, aún no pagó | "Esperando confirmación del pago" |
+| `awaiting_payment` | `api/checkout.ts:183` | Cliente eligió transfer | "Coordinamos tu envío por WhatsApp" (moto) o "Mandá el comprobante" (CA + transfer) |
+| `paid` | Webhook MP o `npm run confirm-order` (transfer) | Pago confirmado | "Pago confirmado — estamos preparando tu pedido" |
+| `processing` | Manual (Supabase Dashboard) | Admin está armando el paquete | "Preparando tu pedido — lo despachamos en las próximas horas" |
+| `shipped` | Manual (Supabase Dashboard) | Admin llevó el paquete al CA / moto coordinada | "Tu pedido está en camino con Correo Argentino" (sin link) o "Coordinado por moto" |
+| `delivered` | Manual (Supabase Dashboard) | Pedido entregado | "Pedido entregado — ¡gracias por tu compra!" |
+| `cancelled` | Webhook / cron / checkout | Pago rechazado / transfer expiró / MP preference falló | "Pedido cancelado" |
+
+#### Admin workflow resumido (shipping)
+
+- **Cliente eligió CA + MP**: admin lleva al CA → `UPDATE orders SET status='shipped', shipped_at=now() WHERE id=...`. No se setea `tracking_number`. Cuando confirma entrega → `status='delivered'`.
+- **Cliente eligió CA + transfer**: admin recibe comprobante por WA → corre `npm run confirm-order <id>` → status `paid`. Después mismo flow que MP.
+- **Cliente eligió moto**: admin coordina por WA → edita `shipping_cost` + `total_amount` en Supabase (post-coordinación) → `npm run confirm-order <id>` → status `paid`. Mismo flow de shipping después.
+
+#### Lo que NO hay (por diseño)
+
+- Sin auto-tracking (no se pega número del CA al sistema)
+- Sin webhook del CA (admin hace todo manual desde el panel del CA)
+- Sin etiqueta auto-generada (admin usa la del panel del CA)
+- Sin integración API del CA (todo manual, precios hardcoded)
 
 ### ⏳ Fase 3.10 — Multi-carrier shipping (DESESTIMADO 2026-07-28)
 
@@ -977,6 +1003,7 @@ new row for relation "orders" violates check constraint "orders_status_check"
 - [ ] **3.2** — `supabase db pull` para versionar schema SQL en repo
 - [ ] **3.3** — Check `rpcData == null || rpcData === 0` en `decrement_stock` (evita interpretar `null` como éxito)
 - [ ] **3.4** — Regenerar tipos con `supabase gen types typescript` (resuelve el bug de `astro check` con SDK 2.106+)
+- [ ] **CA-código** — *Agregado 2026-07-30.* Verificar post-launch si Correo Argentino emite **código/comprobante de admisión** cuando se entrega un paquete en modalidad "particular" (no es número de tracking, es el recibo que da el CA al admitir el paquete). Si emite y es estable: capturar en `orders.ca_admission_code` (migración nueva) y mostrarlo en la card de `shipped` para que el cliente tenga una referencia. Si CA no emite nada en esa modalidad, dejar como está (cliente solo ve "en camino"). No bloquea el launch.
 - [ ] **C28** — *Descubierto 2026-07-28.* Posible bug de hydration en el carrito. Reportado en
   local: el cart aparece vacío en `/checkout` (early return `if (items.length === 0)` en
   `CheckoutForm.tsx:128`) incluso después de agregar items. El cart store, el hook y el
