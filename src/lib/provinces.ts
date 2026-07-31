@@ -6,30 +6,30 @@ export type Province = {
 
 export const PROVINCES: ReadonlyArray<Province> = [
   { id: 'caba', name: 'Ciudad Autónoma de Buenos Aires', cpRanges: [[1000, 1499]] },
-  { id: 'buenos_aires', name: 'Buenos Aires', cpRanges: [[1600, 1999], [7000, 7999]] },
+  { id: 'buenos_aires', name: 'Buenos Aires', cpRanges: [[1600, 1999], [2700, 2999], [6000, 8299]] },
   { id: 'catamarca', name: 'Catamarca', cpRanges: [[4700, 4799]] },
-  { id: 'chaco', name: 'Chaco', cpRanges: [[3500, 3699], [3700, 3799]] },
+  { id: 'chaco', name: 'Chaco', cpRanges: [[3500, 3599], [3700, 3799]] },
   { id: 'chubut', name: 'Chubut', cpRanges: [[9000, 9299]] },
-  { id: 'cordoba', name: 'Córdoba', cpRanges: [[5000, 5299], [5800, 5999]] },
+  { id: 'cordoba', name: 'Córdoba', cpRanges: [[2400, 2499], [5000, 5999]] },
   { id: 'corrientes', name: 'Corrientes', cpRanges: [[3400, 3499]] },
-  { id: 'entre_rios', name: 'Entre Ríos', cpRanges: [[3100, 3299]] },
+  { id: 'entre_rios', name: 'Entre Ríos', cpRanges: [[2800, 2899], [3100, 3299]] },
   { id: 'formosa', name: 'Formosa', cpRanges: [[3600, 3699]] },
   { id: 'jujuy', name: 'Jujuy', cpRanges: [[4600, 4699]] },
-  { id: 'la_pampa', name: 'La Pampa', cpRanges: [[6200, 6499]] },
+  { id: 'la_pampa', name: 'La Pampa', cpRanges: [[6200, 6399], [8200, 8299]] },
   { id: 'la_rioja', name: 'La Rioja', cpRanges: [[5300, 5399]] },
   { id: 'mendoza', name: 'Mendoza', cpRanges: [[5500, 5699]] },
   { id: 'misiones', name: 'Misiones', cpRanges: [[3300, 3399]] },
-  { id: 'neuquen', name: 'Neuquén', cpRanges: [[6600, 6699], [8300, 8399]] },
-  { id: 'rio_negro', name: 'Río Negro', cpRanges: [[6700, 6799], [8400, 8499], [8500, 8599]] },
+  { id: 'neuquen', name: 'Neuquén', cpRanges: [[8340, 8399]] },
+  { id: 'rio_negro', name: 'Río Negro', cpRanges: [[8300, 8339], [8400, 8599]] },
   { id: 'salta', name: 'Salta', cpRanges: [[4400, 4599]] },
   { id: 'san_juan', name: 'San Juan', cpRanges: [[5400, 5499]] },
   { id: 'san_luis', name: 'San Luis', cpRanges: [[5700, 5799]] },
-  { id: 'santa_cruz', name: 'Santa Cruz', cpRanges: [[9300, 9499]] },
+  { id: 'santa_cruz', name: 'Santa Cruz', cpRanges: [[9000, 9099], [9300, 9399]] },
   { id: 'santa_fe', name: 'Santa Fe', cpRanges: [[2000, 3099]] },
   { id: 'santiago_del_estero', name: 'Santiago del Estero', cpRanges: [[4200, 4399]] },
-  { id: 'tierra_del_fuego', name: 'Tierra del Fuego', cpRanges: [[9410, 9499]] },
+  { id: 'tierra_del_fuego', name: 'Tierra del Fuego', cpRanges: [[9400, 9430]] },
   { id: 'tucuman', name: 'Tucumán', cpRanges: [[4000, 4199]] }
-]
+];
 
 export function getProvinceFromCP(cp: string): Province | null {
   const digits = cp.replace(/\D/g, '').slice(0, 4)
