@@ -244,13 +244,15 @@ async function handleWebhook(request: Request): Promise<Response> {
 
   const apiVersion: 'v1' | 'v3' = body.api_version === 'v1' ? 'v1' : 'v3'
 
-  console.log('[webhook] raw inputs', {
-    url: request.url,
-    apiVersion,
-    bodyKeys: body ? Object.keys(body) : null,
-    bodyData: body?.data,
-    body
-  })
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[webhook] raw inputs', {
+      url: request.url,
+      apiVersion,
+      bodyKeys: body ? Object.keys(body) : null,
+      bodyData: body?.data,
+      body
+    })
+  }
 
   const url = new URL(request.url)
   const queryId = url.searchParams.get('id')
@@ -280,15 +282,17 @@ async function handleWebhook(request: Request): Promise<Response> {
     return await handleMerchantOrder(dataId, body, apiVersion)
   }
 
-  console.log('[webhook] validating signature', {
-    apiVersion,
-    dataId,
-    dataIdSource,
-    xSignatureLength: request.headers.get('x-signature')?.length,
-    xSignaturePrefix: request.headers.get('x-signature')?.slice(0, 20),
-    xRequestId: request.headers.get('x-request-id'),
-    bodyLength: rawBody.length
-  })
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[webhook] validating signature', {
+      apiVersion,
+      dataId,
+      dataIdSource,
+      xSignatureLength: request.headers.get('x-signature')?.length,
+      xSignaturePrefix: request.headers.get('x-signature')?.slice(0, 20),
+      xRequestId: request.headers.get('x-request-id'),
+      bodyLength: rawBody.length
+    })
+  }
 
   const sigResult = verifyMpSignature({
     xSignature: request.headers.get('x-signature'),
@@ -323,13 +327,15 @@ async function handleWebhook(request: Request): Promise<Response> {
     })
   }
 
-  console.log('[webhook] signature verified', {
-    matchedSource: sigResult.matchedSource,
-    matchedTemplate: sigResult.matchedTemplate,
-    dataId,
-    dataIdSource,
-    apiVersion
-  })
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[webhook] signature verified', {
+      matchedSource: sigResult.matchedSource,
+      matchedTemplate: sigResult.matchedTemplate,
+      dataId,
+      dataIdSource,
+      apiVersion
+    })
+  }
 
   const isPaymentEvent =
     (body.type === 'payment' || body.topic === 'payment') &&

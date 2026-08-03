@@ -28,6 +28,7 @@ const listeners = new Set<Listener>()
 
 let version = 0
 let cachedSnapshot: CartState | null = null
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
 
 function loadFromStorage(): void {
   if (typeof window === 'undefined') return
@@ -67,10 +68,13 @@ function getServerSnapshot(): CartState {
 
 function saveToStorage(): void {
   if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items))
-  } catch {
-  }
+  if (saveTimeout) clearTimeout(saveTimeout)
+  saveTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items))
+    } catch {
+    }
+  }, 200)
 }
 
 export function addToCart(item: Omit<CartItem, 'quantity'>, quantity: number): void {

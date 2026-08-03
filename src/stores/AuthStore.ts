@@ -20,6 +20,8 @@ interface AuthStore {
 
 const listeners = new Set<AuthListener>()
 
+let _onAuthSubscription: { unsubscribe: () => void } | null = null
+
 const store: AuthStore = {
   user: null,
   loading: true,
@@ -31,6 +33,8 @@ const store: AuthStore = {
   },
 
   initialize() {
+    if (this.initialized) return
+
     supabase.auth
       .getSession()
       .then(({ data, error }) => {
@@ -51,11 +55,13 @@ const store: AuthStore = {
         listeners.forEach((l) => l(this.user))
       })
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      this.user = session?.user ?? null
-      this.initialized = true
-      listeners.forEach((l) => l(this.user))
-    })
+    if (!_onAuthSubscription) {
+      _onAuthSubscription = supabase.auth.onAuthStateChange((_event, session) => {
+        this.user = session?.user ?? null
+        this.initialized = true
+        listeners.forEach((l) => l(this.user))
+      })
+    }
   },
 
   async signUp(email: string, password: string, name: string) {
