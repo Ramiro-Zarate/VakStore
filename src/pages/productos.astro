@@ -21,7 +21,7 @@ const hasFilters = Object.values(filters).some(Boolean)
 const titlePrefix = hasFilters ? 'Resultados' : 'Todos los productos'
 ---
 
-<Layout title={`${titlePrefix} | Vak Store`} description="Explorá nuestra colección completa de camisetas de fútbol. Filtrá por liga, talle y precio.">
+<Layout title={`${titlePrefix} | Vak Store`} description="Explorá nuestra colección completa de camisetas de fútbol importadas. Filtrá por liga, talle y precio." noindex={Boolean(q || hasFilters)}>
   <div class="productos-page">
     <FilterSidebar client:visible leagues={leagues} />
 

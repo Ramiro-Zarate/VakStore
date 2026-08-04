@@ -34,11 +34,12 @@ Node: `>=22.12.0`.
 | `MP_MOCK_MODE` | server | `true` = simular pago sin llamar a MP. `false` o vacío = flow real. | Opcional, default `false` |
 | `PUBLIC_SITE_URL` | server | URL base para back_urls de MP y redirects del checkout. | Requerida |
 | `RESEND_API_KEY` | **server only** | API key de Resend | **Requerida en producción.** Opcional en dev, sin esto emails se loggean pero no salen. Crear cuenta en [resend.com](https://resend.com) (free tier: 3.000/mes), setear en Vercel (3 envs). |
-| `RESEND_FROM_EMAIL` | server | Email del sender (ej. `onboarding@resend.dev`) | Opcional, default `onboarding@resend.dev` |
+| `RESEND_FROM_EMAIL` | server | Email del sender (ej. `hola@tudominio.com.ar`). **Debe ser de un dominio verificado en Resend** (DKIM + SPF). | Opcional, default `onboarding@resend.dev`. **Configurado pre-launch 2026-08-03 con `hola@vakstoree.com`** después de verificar `vakstoree.com` en Resend + DNS en Cloudflare. |
 | `PUBLIC_WHATSAPP_NUMBER` | cliente + server | Número de WhatsApp formato E.164 (ej. `+5491100000000`). Usado para el botón flotante y el CTA de comprobante. | **Crítica**: el botón flotante de WhatsApp (`WhatsAppFloat`) NO se renderiza si esta env var no está seteada. Aplicar a los 3 envs (Production, Preview, Development) en Vercel. |
 | `TRANSFER_EXPIRY_HOURS` | server | Horas hasta auto-cancel de una transfer impaga | Opcional, default `72` |
 | `CRON_SECRET` | **server only** | Bearer token para `PUT /api/cron/cancel-expired-transfers` | Requerida para que Vercel Cron llame al endpoint. Generar random (ej. `openssl rand -hex 32`). Setear en Vercel (3 envs). |
 | `ADMIN_EMAIL` | **server only** | Email destinatario de las notificaciones de nuevas órdenes (Fase 3.7) | Opcional. Si no está seteada, la notif se skipea con warning en consola. Setear en Vercel (3 envs) cuando se quiera activar. |
+| `PUBLIC_GA_ID` | cliente | Google Analytics 4 Measurement ID (formato `G-XXXXXXX`). Si está setteado, el `CookieBanner` permite opt-in para analytics y monta `gtag.js` solo si el user acepta. | Opcional. Si no está, el banner se comporta como 2 estados (accept/reject) y no carga analytics. Configurado en Vercel 2026-08-03. |
 
 > **Nota**: Sentry (`@sentry/astro`) y Upstash (`@upstash/ratelimit` + `@upstash/redis`) están instalados en `package.json` y referenciados en código, pero **no se usan activamente** (no se crearán cuentas externas). El rate limit degrada a "deja pasar" si no hay config. Sentry no captura nada.
 
@@ -254,19 +255,50 @@ Objetivo: mails reales a clientes + notif al admin funcional.
 
 Backlog de Fase 3.9. Resuelve SEO + archivos públicos antes de empezar a posicionar.
 
-| # | Tarea | Esfuerzo |
-|---|---|---|
-| **D1** | `public/robots.txt` — permitir todo salvo `/api/`, `/pedido/`, `/cuenta/` | 2 min |
-| **D2** | `src/pages/404.astro` — layout con link a `/` y `/productos` | 20 min |
-| **D3** | `public/images/og-default.png` (1200×630) — generar o pedir a diseñador | pendiente |
-| **D4** | Sitemap (`npm install @astrojs/sitemap` + integration en `astro.config.mjs` con `PUBLIC_SITE_URL`) | 15 min |
-| **D5** | `noindex` en `/productos` con filtros (`src/pages/productos.astro:24` → `<Layout ... noindex={Boolean(q || hasFilters)}>`) | 1 min |
-| **D6** | Verificar migraciones 002/003 aplicadas en prod (query a `information_schema.columns`) | 2 min |
-| **D7** | Slugs en URLs producto (`src/pages/productos/[slug].astro`, mig 005) | 2-3 hs |
-| **D8** | Schema.org structured data en producto (`src/components/ProductSchema.tsx`) | 30 min |
-| **D9** | Analytics (Plausible recomendado — 1 `<script async>` en `Layout.astro:51`) | 5 min |
+| # | Tarea | Esfuerzo | Estado |
+|---|---|---|---|
+| **D1** | `public/robots.txt` — permitir todo salvo `/api/`, `/pedido/`, `/cuenta/` | 2 min | ✅ cerrado 2026-08-03 |
+| **D2** | `src/pages/404.astro` — layout con link a `/` y `/productos` | 20 min | ✅ cerrado 2026-08-03 |
+| **D3** | `public/images/og-default.png` (1200×630) — generar o pedir a diseñador | pendiente | 🟡 pendiente pre-launch |
+| **D4** | Sitemap (`@astrojs/sitemap` + integration en `astro.config.mjs` con `site: 'https://vakstoree.com'`) | 15 min | ✅ cerrado 2026-08-03 |
+| **D5** | `noindex` en `/productos` con filtros (`src/pages/productos.astro:24` → `<Layout ... noindex={Boolean(q || hasFilters)}>`) | 1 min | ✅ cerrado 2026-08-03 |
+| **D6** | Verificar migraciones 002/003 aplicadas en prod (query a `information_schema.columns`) | 2 min | pendiente |
+| **D7** | Slugs en URLs producto (`src/pages/productos/[slug].astro`, mig 005) | 2-3 hs | pendiente (post-launch) |
+| **D8** | Schema.org structured data en producto (`src/components/ProductSchema.tsx`) | 30 min | pendiente (post-launch) |
+| **D9** | Analytics — reemplazado por FASE GA4 (Google Analytics 4 con opt-in) | — | ✅ ver FASE GA4 abajo |
 
 **Batch D+E+F webhooks** (originalmente en current focus): reubicado en §6.6 E1.
+
+### ✅ FASE GA4 — Google Analytics 4 con opt-in (cerrada 2026-08-03)
+
+Pre-launch se activó GA4 con consentimiento opt-in (no auto-tracking). El usuario puede aceptar o rechazar analytics desde el CookieBanner.
+
+#### Implementación
+
+- **Env var:** `PUBLIC_GA_ID` (formato `G-XXXXXXX`) en Vercel (3 envs).
+- **CookieBanner:** 3 estados (`'pending' | 'accepted' | 'rejected'`). Persiste en localStorage.
+- **Script de gtag:** se monta dinámicamente desde `Layout.astro` **solo si** `localStorage.getItem('cookie-consent') === 'accepted'`. Sin consentimiento, no se carga nada.
+- **CSP:** `vercel.json` actualizado con allowlist de `googletagmanager.com` (script-src) y `google-analytics.com` (connect-src).
+- **Política de privacidad:** `privacidad.astro` documenta el uso condicional de analytics.
+
+#### Archivos modificados
+
+- `src/layouts/Layout.astro` — script gtag condicional
+- `src/components/CookieBanner.tsx` — 3 estados + persistencia
+- `vercel.json` — CSP allowlist actualizado
+- `.env.example` — `PUBLIC_GA_ID` documentado
+
+#### Edge cases
+
+- Si `PUBLIC_GA_ID` no está seteado, el CookieBanner sigue funcionando en 2 estados (accept/reject) y no carga analytics. El sitio no rompe.
+- Si el user rechaza analytics, NO se carga gtag.js en ninguna página.
+- Si el user acepta, gtag.js se carga con `consent mode = granted` para que las páginas vistas se cuenten desde el momento del consentimiento (no retroactivo).
+
+#### Diferido a fase futura
+
+- Migrar a Plausible o Umami si querés analytics cookieless (más simple, no necesita opt-in)
+- Custom events para funnel de checkout (add_to_cart, begin_checkout, purchase)
+- Enhanced ecommerce tracking con productos y categorías
 
 ### 6.6 🟦 FASE E — Cleanup técnico (post-launch, cuando duela)
 
@@ -293,6 +325,16 @@ Backlog de Fase 3.9. Resuelve SEO + archivos públicos antes de empezar a posici
 - [x] **🎨 P-Strength cerrado (2026-07-28)** — Bug en `RegisterForm.getPasswordStrength`: contraseñas de 1-5 chars se mostraban como "Fuerte" porque el `if (score === 1)` y `if (score === 2)` no matcheaban para `score=0` y la función caía al `return { score: 3, label: 'Fuerte' }` final (fall-through). Fix: agregar caso explícito `if (score === 0) return { score: 0, label: 'Muy débil' }` antes de los otros. C31 cerrado.
 - [x] **🔐 V-Login cerrado (2026-07-28)** — Bug de UX en el flow de signup: después de click el link de verificación del email, Supabase redirigía a la Site URL (la home) → user sin loguear, tenía que ir a `/login` manualmente. Causa: `signUp` no seteaba `emailRedirectTo` y `/auth/verificacion.astro` era estática (no procesaba la sesión del hash). Fix: 2 cambios. (1) `emailRedirectTo: ${getOrigin()}/auth/verificacion` en `signUp` (AuthStore + auth.ts). (2) `/auth/verificacion` ahora es un React component (`src/components/Verificacion.tsx`) que detecta la sesión con `supabase.auth.getSession()` en mount — si hay sesión redirige a `/`, si no muestra el mensaje de "revisá tu email". C32 cerrado.
 - [x] **📦 Decisión final de envíos pre-launch (2026-07-30) — CA manual "particular"** — Refina la decisión del 2026-07-28. **Modelo final**: Correo Argentino para todo el país (sin API, sin etiqueta auto, sin tracking number real) + Motomensajería exclusiva para CABA/GBA (coordinada por WhatsApp, pago obligatorio por transferencia). Pricing hardcoded por zona en `src/lib/shippingZones.ts`. Status flow (ver tabla completa abajo). Admin workflow: lleva el paquete al CA → `UPDATE orders SET status='shipped', shipped_at=now()` en Supabase Dashboard (sin pegar `tracking_number`). Cuando confirma entrega → `status='delivered'`. El cliente ve "Tu pedido está en camino con Correo Argentino" sin link. **Diferencia clave vs 2026-07-28**: ya no se captura ni se muestra número de tracking. La card violeta con link a la página del carrier queda deshabilitada por gating natural (`tracking_number IS NULL`). Ver `src/lib/shippingZones.ts` para el detalle de zonas y precios, `src/components/OrderTracking.tsx:460-481` para el render de `shipped`, y `src/components/OrderTracking.tsx:292-335` para el flow de moto (que sí se mantiene). **Pendiente a verificar post-launch**: si CA emite algún código/comprobante de admisión en modalidad particular, y si conviene capturarlo y mostrárselo al cliente. No bloquea el launch.
+- [x] **🐛 B-Listener-Leak cerrado (2026-08-03)** — `useAuth.ts:22` llamaba `authStore.initialize()` en cada mount de un componente que usaba `useAuth`, acumulando listeners de `onAuthStateChange` (memory leak) y disparando `getSession()` redundante. En una página con 2-3 componentes que usan auth (ej. UserMenu + AuthNav + ProfileForm) se acumulaban 3 listeners. Fix en `src/stores/AuthStore.ts`: (1) `initialize()` ahora es idempotente con `if (this.initialized) return` al inicio. (2) Variable módulo `_onAuthSubscription` guarda la subscription de `onAuthStateChange` para evitar duplicados. Una sola suscripción global por sesión de browser. C33 cerrado.
+- [x] **🐛 B-Cart-Debounce cerrado (2026-08-03)** — `CartStore.saveToStorage()` se llamaba sincrónicamente en cada `addToCart`/`removeFromCart`/`updateQuantity`/`clearCart`, escribiendo a `localStorage` N veces por N clicks rápidos. Fix en `src/stores/CartStore.ts`: agregado `saveTimeout: ReturnType<typeof setTimeout> | null = null` como variable módulo, y `saveToStorage()` ahora hace `clearTimeout` + `setTimeout(..., 200)` antes del `localStorage.setItem`. 10 clicks rápidos = 1 write. C34 cerrado.
+- [x] **🐛 B-Webhook-Verbose cerrado (2026-08-03)** — 3 `console.log` verbosos en `src/pages/api/webhooks/mercadopago.ts` (líneas 247, ~283, ~326) loggeaban el body completo de MP (PII del payer), headers, y fragmentos de firma HMAC. En producción llenaban Vercel logs con ruido y exponían PII. Fix: los 3 envueltos en `if (process.env.NODE_ENV !== 'production')`. En dev: se loggean. En prod: 0 output. Los `console.warn`/`console.error` críticos se mantienen intactos. C35 cerrado.
+- [x] **🟢 Link "Ofertas" roto eliminado (2026-08-03)** — 4 lugares del sitio (`Nav.astro:31`, `Footer.astro:29`, `Hero.astro:26` CTA "Liquidación", `MobileMenu.tsx:21`) apuntaban a `/productos?sale=true`, pero la API de productos no filtraba por `sale`, no había columna `on_sale`/`original_price` en el schema, y no había toggle en FilterSidebar. Usuario clickeaba "Ofertas" → veía todo el catálogo. **Decisión**: sacar los 4 links en vez de implementar ofertas de verdad (3-4 hs con migración + UI). El sitio no promete ofertas que no tiene. Si en el futuro se suman, queda documentado el approach en este entry.
+- [x] **🌐 Dominio `vakstoree.com` configurado pre-launch (2026-08-03)** — DNS en Cloudflare. Vercel: dominio custom agregado, SSL auto, `PUBLIC_SITE_URL=https://vakstoree.com` (sin trailing slash). Supabase: Site URL + 4 Redirect URLs (`/auth/callback`, `/auth/verificacion`, `/auth/update-password`, `/auth/recover`) actualizadas. Resend: dominio `vakstoree.com` verificado con DKIM+SPF (3 records en Cloudflare, no DMARC todavía), `RESEND_API_KEY=re_xxxxx` en Vercel (3 envs), `RESEND_FROM_EMAIL=hola@vakstoree.com`. **Validado E2E con compra de prueba por transferencia**: email de instrucciones llegó al inbox con FROM correcto, no cayó en spam. Mercado Pago: webhook URL actualizada a `https://vakstoree.com/api/webhooks/mercadopago`. AGENTS.md §2 (Variables de entorno) actualizado con `PUBLIC_GA_ID` y estado real de `RESEND_FROM_EMAIL`.
+- [x] **🔐 Google OAuth cerrado (FASE A2+A4, 2026-08-03)** — Bug G-OAuth del roadmap finalmente cerrado end-to-end. Google Cloud: proyecto `vak-store` creado, Google Identity API habilitada, OAuth 2.0 Client (Web application) generado. Authorized redirect URIs: `https://ykschogmngngdyietggunf.supabase.co/auth/v1/callback` (la de Supabase, no la del sitio). Authorized JavaScript origins: `https://vakstoree.com` + `https://www.vakstoree.com`. Supabase → Authentication → Providers → Google: Client ID + Secret cargados. Site URL + Redirect URLs ya actualizados al nuevo dominio (ver entry anterior). **Validado E2E con login real**: el botón "Continuar con Google" en `/login` y `/registro` funciona correctamente, la sesión se persiste en cookie del dominio custom, el user queda en la tabla `profiles` de Supabase. AGENTS.md §6.2 FASE A2+A4 cerradas.
+- [x] **📊 FASE GA4 — Google Analytics 4 con opt-in (cerrada 2026-08-03)** — Activación pre-launch de analytics con consentimiento. Env var `PUBLIC_GA_ID` (formato `G-XXXXXXX`) configurada en Vercel. CookieBanner extendido de 2 a 3 estados (`'pending' | 'accepted' | 'rejected'`). Script de gtag.js se monta dinámicamente desde `Layout.astro` **solo si** `localStorage.getItem('cookie-consent') === 'accepted'` (consent mode = granted). CSP en `vercel.json` actualizado con allowlist de `googletagmanager.com` (script-src) y `google-analytics.com` (connect-src). Política de privacidad (`privacidad.astro`) documenta el uso condicional. Si `PUBLIC_GA_ID` no está seteado, el banner sigue funcionando en 2 estados y no carga nada. Ver §FASE GA4 arriba para detalle completo.
+- [x] **📝 SEO pre-launch (FASE D1+D2+D4+D5, 2026-08-03)** — Cerrados 4 de los 9 items de §6.5 FASE D en un solo batch. (D1) `public/robots.txt` creado con `Disallow: /api/`, `/pedido/`, `/cuenta/`, `/login`, `/registro`, `/checkout`, `/auth/`. (D2) `src/pages/404.astro` con Layout + `noindex` + CTA a home y productos, estilo coherente con el resto del sitio. (D4) `astro.config.mjs`: `site: 'https://vakstoree.com'` + integration `@astrojs/sitemap` con filter que excluye páginas privadas. Sitemap generado con 4 URLs públicas (home, contacto, privacidad, productos). (D5) `src/pages/productos.astro:24` ahora pasa `noindex={Boolean(q || hasFilters)}` al Layout. Description ajustada a "camisetas de fútbol **importadas**" (no originales) en home y catálogo. **Pendientes D6, D7, D8**: migraciones 002/003 en prod, slugs en URLs producto, Schema.org structured data. Los 3 son post-launch.
+- [x] **📄 `.env.example` creado (2026-08-03)** — Archivo nuevo con las 16 env vars de §2 documentadas: `PUBLIC_*` agrupadas arriba (visibles al cliente), server-only con warning "NUNCA importar en código del cliente", opcionales al final (Sentry, Upstash, mock mode). Referencia para nuevos devs y para verificar qué env vars son necesarias.
+- [x] **📚 AGENTS.md actualizado (2026-08-03)** — §2 (Variables de entorno) extendido con `PUBLIC_GA_ID`. `RESEND_FROM_EMAIL` actualizado de `onboarding@resend.dev` (default) al estado real pre-launch. §6.5 FASE D: items D1, D2, D4, D5 marcados como cerrados con fecha. D3, D6, D7, D8 mantienen su estado. D9 marcado como reemplazado por FASE GA4. Nueva sección §FASE GA4 agregada entre FASE D y FASE E. §6.7 Cambios recientes extendido con 8 nuevas entradas (los 3 bugs del Batch A, link "Ofertas" eliminado, dominio, Google OAuth, GA4, SEO, `.env.example`, este mismo update).
 
 #### Tabla de status (modelo final 2026-07-30)
 

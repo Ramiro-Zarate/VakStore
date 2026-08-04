@@ -1,0 +1,120 @@
+---
+import '../pages/styles/global.css'
+import Layout from '../layouts/Layout.astro'
+---
+
+<Layout
+  title="Página no encontrada | Vak Store"
+  description="La página que buscás no existe. Volvé al inicio o explorá nuestro catálogo de camisetas de fútbol importadas."
+  noindex
+>
+  <section class="not-found">
+    <div class="not-found-inner">
+      <p class="eyebrow">— Error 404</p>
+      <h1 class="title">No encontramos esa página</h1>
+      <p class="subtitle">El link que seguiste está roto o la página ya no existe. Pero tenemos mucho para mostrarte.</p>
+      <div class="actions">
+        <a href="/" class="btn btn-primary">Volver al inicio</a>
+        <a href="/productos" class="btn btn-secondary">Ver productos</a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .not-found {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: var(--space-7) var(--space-5);
+  }
+
+  .not-found-inner {
+    max-width: 560px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: center;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wider);
+    color: var(--color-accent);
+    margin: 0;
+  }
+
+  .title {
+    font-family: var(--font-display);
+    font-size: var(--text-4xl);
+    font-weight: var(--weight-bold);
+    line-height: var(--leading-none);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .subtitle {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: var(--leading-relaxed);
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    text-decoration: none;
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: #fff;
+    border: 1px solid var(--color-accent);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-accent-hover, #b50006);
+    border-color: var(--color-accent-hover, #b50006);
+  }
+
+  .btn-secondary {
+    background-color: transparent;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-strong);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 640px) {
+    .title {
+      font-size: var(--text-3xl);
+    }
+  }
+</style>

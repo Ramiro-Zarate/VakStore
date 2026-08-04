@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /pedido/
+Disallow: /pedido/*
+Disallow: /cuenta/
+Disallow: /cuenta/*
+Disallow: /login
+Disallow: /registro
+Disallow: /checkout
+Disallow: /auth/
+Disallow: /auth/*
+
+Sitemap: https://vakstoree.com/sitemap-index.xml
