@@ -55,6 +55,13 @@ const gaId = import.meta.env.PUBLIC_GA_ID
     <link rel="preconnect" href="https://www.googletagmanager.com" />
     {gaId && (
       <>
+        <script is:inline define:vars={{ gaId }}>
+          try {
+            if (localStorage.getItem('cookie-consent') === 'rejected') {
+              window['ga-disable-' + gaId] = true;
+            }
+          } catch (e) {}
+        </script>
         <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
         <script is:inline define:vars={{ gaId }}>
           window.dataLayer = window.dataLayer || [];

@@ -24,15 +24,18 @@ export default function CookieBanner() {
     }
   }, [])
 
-  const persist = () => {
+  const persist = (value: 'accepted' | 'rejected') => {
     try {
-      localStorage.setItem(STORAGE_KEY, 'acknowledged')
+      localStorage.setItem(STORAGE_KEY, value)
       localStorage.setItem(VERSION_KEY, POLICY_VERSION)
       localStorage.setItem(DATE_KEY, new Date().toISOString())
     } catch (err) {
       console.error('[CookieBanner] failed to persist consent:', err)
     }
     setShow(false)
+    if (value === 'rejected') {
+      window.location.reload()
+    }
   }
 
   if (!show) return null
@@ -44,7 +47,7 @@ export default function CookieBanner() {
           <p className={styles.text}>
             Usamos cookies técnicas para que el sitio funcione (sesión, carrito)
             y Google Analytics para entender cómo usás el sitio y mejorarlo.
-            Si querés evitar el tracking, podés usar un bloqueador.{' '}
+            Podés aceptar o rechazar las cookies de análisis.{' '}
             <a href="/privacidad" className={styles.link}>
               Política de privacidad
             </a>
@@ -53,10 +56,17 @@ export default function CookieBanner() {
         <div className={styles.actions}>
           <button
             type="button"
-            className={styles.btnPrimary}
-            onClick={persist}
+            className={styles.btnSecondary}
+            onClick={() => persist('rejected')}
           >
-            Entendido
+            Rechazar
+          </button>
+          <button
+            type="button"
+            className={styles.btnPrimary}
+            onClick={() => persist('accepted')}
+          >
+            Aceptar
           </button>
         </div>
       </div>

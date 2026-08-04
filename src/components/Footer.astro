@@ -46,6 +46,14 @@ const year = new Date().getFullYear()
         <li><a href="/contacto">Contacto</a></li>
         <li><a href="/privacidad#7.politica-de-devoluciones">Cambios y devoluciones</a></li>
         <li><a href="/privacidad">Términos y condiciones</a></li>
+        <li>
+          <a
+            href="#"
+            data-manage-cookies
+          >
+            Administrar cookies
+          </a>
+        </li>
       </ul>
     </nav>
 
@@ -239,3 +247,20 @@ const year = new Date().getFullYear()
     font-family: var(--font-mono);
   }
 </style>
+
+<script>
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement
+    if (target?.matches('[data-manage-cookies]') || target?.closest('[data-manage-cookies]')) {
+      e.preventDefault()
+      try {
+        localStorage.removeItem('cookie-consent')
+        localStorage.removeItem('cookie-consent-version')
+        localStorage.removeItem('cookie-consent-date')
+      } catch (err) {
+        console.error('[Footer] failed to clear cookie consent:', err)
+      }
+      window.location.reload()
+    }
+  })
+</script>
