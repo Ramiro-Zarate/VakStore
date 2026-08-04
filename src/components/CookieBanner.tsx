@@ -4,7 +4,7 @@ import styles from './CookieBanner.module.css'
 const STORAGE_KEY = 'cookie-consent'
 const VERSION_KEY = 'cookie-consent-version'
 const DATE_KEY = 'cookie-consent-date'
-const POLICY_VERSION = '1.0'
+const POLICY_VERSION = '1.1'
 
 export default function CookieBanner() {
   const [show, setShow] = useState(false)
@@ -24,9 +24,9 @@ export default function CookieBanner() {
     }
   }, [])
 
-  const persist = (value: 'accepted' | 'rejected') => {
+  const persist = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, value)
+      localStorage.setItem(STORAGE_KEY, 'acknowledged')
       localStorage.setItem(VERSION_KEY, POLICY_VERSION)
       localStorage.setItem(DATE_KEY, new Date().toISOString())
     } catch (err) {
@@ -42,10 +42,9 @@ export default function CookieBanner() {
       <div className={styles.inner}>
         <div className={styles.content}>
           <p className={styles.text}>
-            Usamos cookies técnicas para que el sitio funcione (sesión, carrito).
-            Si aceptás, también cargamos Google Analytics para entender cómo
-            usás el sitio y mejorarlo. No compartimos tus datos con terceros
-            para fines publicitarios.{' '}
+            Usamos cookies técnicas para que el sitio funcione (sesión, carrito)
+            y Google Analytics para entender cómo usás el sitio y mejorarlo.
+            Si querés evitar el tracking, podés usar un bloqueador.{' '}
             <a href="/privacidad" className={styles.link}>
               Política de privacidad
             </a>
@@ -54,17 +53,10 @@ export default function CookieBanner() {
         <div className={styles.actions}>
           <button
             type="button"
-            className={styles.btnSecondary}
-            onClick={() => persist('rejected')}
-          >
-            Rechazar
-          </button>
-          <button
-            type="button"
             className={styles.btnPrimary}
-            onClick={() => persist('accepted')}
+            onClick={persist}
           >
-            Aceptar
+            Entendido
           </button>
         </div>
       </div>

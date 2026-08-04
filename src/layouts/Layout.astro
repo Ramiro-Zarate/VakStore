@@ -52,6 +52,18 @@ const gaId = import.meta.env.PUBLIC_GA_ID
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    {gaId && (
+      <>
+        <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+        <script is:inline define:vars={{ gaId }}>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId);
+        </script>
+      </>
+    )}
     <link
       rel="preload"
       as="style"
@@ -75,32 +87,5 @@ const gaId = import.meta.env.PUBLIC_GA_ID
     </div>
     <WhatsAppFloat />
     <CookieBanner client:only="react" />
-    {gaId && (
-      <>
-        <script is:inline define:vars={{ gaId }}>
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('consent', 'default', { analytics_storage: 'denied' });
-          gtag('js', new Date());
-          gtag('config', gaId);
-        </script>
-        <script is:inline>
-          (function() {
-            try {
-              if (localStorage.getItem('cookie-consent') === 'accepted') {
-                gtag('consent', 'update', { analytics_storage: 'granted' });
-              }
-            } catch {}
-          })();
-        </script>
-        <script is:inline define:vars={{ gaId }}>
-          if (document.querySelector('script[src*="googletagmanager"]')) return;
-          var s = document.createElement('script');
-          s.async = true;
-          s.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
-          document.head.appendChild(s);
-        </script>
-      </>
-    )}
   </body>
 </html>
