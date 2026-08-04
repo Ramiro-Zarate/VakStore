@@ -80,6 +80,8 @@ const gaId = import.meta.env.PUBLIC_GA_ID
         if (localStorage.getItem('cookie-consent') === 'accepted') {
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', gaId);
           gtag('consent', 'update', { analytics_storage: 'granted' });
           (function() {
             var s = document.createElement('script');
