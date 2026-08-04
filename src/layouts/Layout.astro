@@ -14,13 +14,14 @@ interface Props {
 
 const {
   title,
-  description = 'Tienda de camisetas de fútbol. Diseños exclusivos, telas importadas y envíos a todo el país.',
+  description = 'Tienda de camisetas de fútbol importadas. Diseños exclusivos, telas importadas y envíos a todo el país.',
   ogImage = '/images/og-default.png',
   noindex = false
 } = Astro.props
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString()
 const siteName = 'Vak Store'
+const gaId = import.meta.env.PUBLIC_GA_ID
 ---
 <!DOCTYPE html>
 <html lang="es">
@@ -74,5 +75,20 @@ const siteName = 'Vak Store'
     </div>
     <WhatsAppFloat />
     <CookieBanner client:only="react" />
+    {gaId && (
+      <script is:inline define:vars={{ gaId }}>
+        if (localStorage.getItem('cookie-consent') === 'accepted') {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('consent', 'update', { analytics_storage: 'granted' });
+          (function() {
+            var s = document.createElement('script');
+            s.async = true;
+            s.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+            document.head.appendChild(s);
+          })();
+        }
+      </script>
+    )}
   </body>
 </html>

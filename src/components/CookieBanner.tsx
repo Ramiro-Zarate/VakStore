@@ -37,7 +37,8 @@ export default function CookieBanner() {
         <div className={styles.content}>
           <p className={styles.text}>
             Usamos cookies técnicas para que el sitio funcione (sesión, carrito).
-            No usamos cookies de tracking ni compartimos tus datos con terceros
+            Si aceptás, también cargamos Google Analytics para entender cómo
+            usás el sitio y mejorarlo. No compartimos tus datos con terceros
             para fines publicitarios.{' '}
             <a href="/privacidad" className={styles.link}>
               Política de privacidad
