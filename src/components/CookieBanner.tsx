@@ -10,9 +10,16 @@ export default function CookieBanner() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    const version = localStorage.getItem(VERSION_KEY)
-    if (!stored || version !== POLICY_VERSION) {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      const version = localStorage.getItem(VERSION_KEY)
+      if (stored && version === POLICY_VERSION) {
+        setShow(false)
+      } else {
+        setShow(true)
+      }
+    } catch (err) {
+      console.error('[CookieBanner] failed to read storage:', err)
       setShow(true)
     }
   }, [])
@@ -22,9 +29,8 @@ export default function CookieBanner() {
       localStorage.setItem(STORAGE_KEY, value)
       localStorage.setItem(VERSION_KEY, POLICY_VERSION)
       localStorage.setItem(DATE_KEY, new Date().toISOString())
-    } catch {
-      setShow(false)
-      return
+    } catch (err) {
+      console.error('[CookieBanner] failed to persist consent:', err)
     }
     setShow(false)
   }

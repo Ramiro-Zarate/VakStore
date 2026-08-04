@@ -76,21 +76,31 @@ const gaId = import.meta.env.PUBLIC_GA_ID
     <WhatsAppFloat />
     <CookieBanner client:only="react" />
     {gaId && (
-      <script is:inline define:vars={{ gaId }}>
-        if (localStorage.getItem('cookie-consent') === 'accepted') {
+      <>
+        <script is:inline define:vars={{ gaId }}>
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
+          gtag('consent', 'default', { analytics_storage: 'denied' });
           gtag('js', new Date());
           gtag('config', gaId);
-          gtag('consent', 'update', { analytics_storage: 'granted' });
+        </script>
+        <script is:inline>
           (function() {
-            var s = document.createElement('script');
-            s.async = true;
-            s.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
-            document.head.appendChild(s);
+            try {
+              if (localStorage.getItem('cookie-consent') === 'accepted') {
+                gtag('consent', 'update', { analytics_storage: 'granted' });
+              }
+            } catch {}
           })();
-        }
-      </script>
+        </script>
+        <script is:inline define:vars={{ gaId }}>
+          if (document.querySelector('script[src*="googletagmanager"]')) return;
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=' + gaId;
+          document.head.appendChild(s);
+        </script>
+      </>
     )}
   </body>
 </html>
