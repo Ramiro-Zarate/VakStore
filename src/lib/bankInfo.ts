@@ -3,7 +3,7 @@ import type { BankInfoSnapshot } from './types'
 export const bankInfo: BankInfoSnapshot = {
   alias: 'vakstoree',
   cbu: '0000076500000053416757',
-  holder: 'Alvarez Valentin',
+  holder: 'ALVAREZ VALENTIN',
   cuit: '20-47144775-8'
 }
 

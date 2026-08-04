@@ -13,15 +13,14 @@ interface MenuSection {
 }
 
 const SECTIONS: MenuSection[] = [
-  {
-    title: 'Tienda',
-    links: [
-      { href: '/', label: 'Inicio' },
-      { href: '/productos', label: 'Productos' },
-      { href: '/productos?sale=true', label: 'Ofertas' },
-      { href: '/cuenta#contacto', label: 'Contacto' }
-    ]
-  },
+    {
+      title: 'Tienda',
+      links: [
+        { href: '/', label: 'Inicio' },
+        { href: '/productos', label: 'Productos' },
+        { href: '/cuenta#contacto', label: 'Contacto' }
+      ]
+    },
   {
     title: 'Cuenta',
     links: [
