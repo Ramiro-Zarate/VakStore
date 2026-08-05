@@ -63,7 +63,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     })
   }
 
-  const { data, error } = await getSupabaseAdmin()
+    const { data, error } = await getSupabaseAdmin()
     .from('orders')
     .select(`
       id,
@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ params, request }) => {
           version,
           products (
             name,
-            image_url
+            images
           )
         )
       )
@@ -127,7 +127,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       product_variant?: {
         size: string
         version: string
-        product?: { name: string; image_url: string | null }
+        product?: { name: string; images: string[] }
       }
     }>
   } | null

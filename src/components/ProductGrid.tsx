@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { ProductWithVariants } from '../lib/types'
+import { getCoverImage } from '../lib/productImages'
 import { Skeleton, Icon } from './Primitives'
 import { useReveal } from '../hooks/useReveal'
 import styles from './ProductGrid.module.css'
@@ -231,9 +232,9 @@ function ProductCard({ product, delay }: { product: ProductWithVariants; delay: 
         aria-label={`${product.name}${hasStock ? '' : ' (agotado)'}`}
       >
         <div className={styles.imageContainer}>
-          {product.image_url ? (
+          {getCoverImage(product) ? (
             <img
-              src={product.image_url}
+              src={getCoverImage(product) ?? undefined}
               alt=""
               className={styles.image}
               loading="lazy"

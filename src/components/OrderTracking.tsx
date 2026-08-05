@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Field, Input, Skeleton, Icon } from './Primitives'
 import { getCarrier, getTrackingUrl } from '../lib/carriers'
+import { getCoverImage } from '../lib/productImages'
 import styles from './OrderTracking.module.css'
 
 interface OrderItem {
@@ -13,7 +14,7 @@ interface OrderItem {
     version: string
     product?: {
       name: string
-      image_url: string | null
+      images: string[]
     }
   }
 }
@@ -600,8 +601,8 @@ export default function OrderTracking() {
               {order.order_items?.map(item => (
                 <li key={item.id} className={styles.item}>
                   <div className={styles.itemImage}>
-                    {item.product_variant?.product?.image_url ? (
-                      <img src={item.product_variant.product.image_url} alt="" loading="lazy" decoding="async" />
+                    {getCoverImage(item.product_variant?.product ?? { images: [] }) ? (
+                      <img src={getCoverImage(item.product_variant?.product ?? { images: [] }) ?? undefined} alt="" loading="lazy" decoding="async" />
                     ) : (
                       <span className={styles.itemPlaceholder} aria-hidden="true">Sin imagen</span>
                     )}

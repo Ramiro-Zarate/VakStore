@@ -3,7 +3,7 @@ export interface Product {
   name: string
   description: string | null
   category: 'camisetas' | 'shorts' | 'camperas'
-  image_url: string | null
+  images: string[]
   is_active: boolean
   is_featured: boolean
   created_at: string
