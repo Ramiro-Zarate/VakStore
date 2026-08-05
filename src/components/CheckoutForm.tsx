@@ -5,6 +5,7 @@ import { TRANSFER_DISCOUNT } from '../lib/bankInfo'
 import {
   getOptionsForCP,
   isMotoOption,
+  isCorreoOption,
   type ShippingOption
 } from '../lib/shippingOptions'
 import {
@@ -129,6 +130,7 @@ export default function CheckoutForm() {
 
   const selectedOption = shippingOptions.find(o => o.id === selectedOptionId)
   const isMoto = selectedOption ? isMotoOption(selectedOption.id) : false
+  const isCorreo = selectedOption ? isCorreoOption(selectedOption.id) : false
   const shipping = selectedOption?.price ?? 0
   const subtotal = getCartTotal()
   const isTransfer = form.paymentMethod === 'transfer'
@@ -418,6 +420,21 @@ export default function CheckoutForm() {
               <p className={styles.shippingEmpty}>
                 Ingresá tu código postal para ver las opciones de envío disponibles.
               </p>
+            )}
+            {isCorreo && (
+              <div className={styles.warningCard} role="status">
+                <span className={styles.warningIcon} aria-hidden="true">
+                  <Icon size={16}>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </Icon>
+                </span>
+                <p className={styles.warningText}>
+                  <strong>Datos del titular que retira el paquete.</strong>{' '}
+                  Completá el campo de nombre con el Nombre y Apellido completos de la persona que va a retirar el paquete en la sucursal de Correo Argentino, tal como figuran en su DNI. El correo exige presentar el DNI físico original coincidente para hacer la entrega.
+                </p>
+              </div>
             )}
           </section>
 

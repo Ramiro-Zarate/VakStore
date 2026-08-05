@@ -74,3 +74,7 @@ export function getOptionById(id: string): ShippingOption | null {
 export function isMotoOption(optionId: string): boolean {
   return optionId.endsWith(MOTO_SUFFIX)
 }
+
+export function isCorreoOption(optionId: string): boolean {
+  return optionId.endsWith(CORREO_SUFFIX)
+}
