@@ -870,7 +870,7 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 > **Cuándo usar este checklist**: pre-release que toque `OrderTracking.tsx` / `carriers.ts` / render de la card, o la primera vez que se carga un envío real para un cliente.
 
 ##### Pre-condición
-- [ ] Orden existente con `status ∈ {paid, processing, shipped, delivered}` y al menos un `order_item`. Si no hay, generar una con `MP_MOCK_MODE=true`.
+- [x ] Orden existente con `status ∈ {paid, processing, shipped, delivered}` y al menos un `order_item`. Si no hay, generar una con `MP_MOCK_MODE=true`.
 - [ ] La orden NO debe tener `carrier` ni `tracking_number` (estado limpio).
 - [ ] Sesión con acceso a `/pedido/[id]?email=<orderEmail>` (ver C5/C6).
 
