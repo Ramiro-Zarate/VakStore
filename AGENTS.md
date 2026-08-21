@@ -888,7 +888,7 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
    - [ ] Link "Rastrear en Andreani" presente
 
 ##### Test 2 — URL del link
-- [ ] Click → URL = `https://www.andreani.com/envio/TEST12345`
+- [x ] Click → URL = `https://www.andreani.com/envio/TEST12345`
 - [ ] Repetir con `tracking_number='ABC 123/XYZ'` → URL contiene `%20` y `%2F` (`encodeURIComponent` aplica)
 
 ##### Test 3 — Repetir con Correo Argentino
