@@ -55,34 +55,56 @@ Node: `>=22.12.0`.
 
 ```
 src/
-├── components/         # React + Astro components
-├── hooks/              # Custom React hooks
+├── components/         # React + Astro components (CheckoutForm, OrderTracking, ProductGrid,
+│   │                   #   ProductDetail, FilterSidebar, SearchBar, LoginForm, RegisterForm,
+│   │                   #   ResetPasswordForm, UpdatePasswordForm, Verificacion, ProfileForm,
+│   │                   #   CookieBanner, UserMenu, AuthNav, CartIsland, OrderLookupForm,
+│   │                   #   MobileMenu, WhatsAppFloat, Nav, Footer, Hero, Featured, Explora,
+│   │                   #   Primitives/*, *.module.css)
+├── hooks/              # useAuth, useCartStore, useEscape, useFocusTrap, useReveal
 ├── layouts/            # Layout.astro (único)
 ├── lib/
-│   ├── auth.ts              # Helpers de Supabase Auth
+│   ├── auth.ts              # Helpers de Supabase Auth + paths + getOrigin()
 │   ├── supabase.ts          # Cliente anon (universal)
+│   ├── supabaseServer.ts    # createServerClient SSR-safe (cookies, auth de user)
 │   ├── supabaseAdmin.ts     # Cliente service_role (server only, lazy init)
-│   ├── mp.ts                # SDK Mercado Pago (server only, lazy init)
-│   ├── email.ts             # Wrapper de Resend
-│   ├── orderProcessing.ts   # Lógica de "pago aprobado" compartida
-│   ├── rateLimit.ts         # Rate limiting con Upstash (degrada si no hay config)
-│   ├── checkoutSchema.ts    # Zod schemas
-│   └── types.ts             # Tipos compartidos + Database
+│   ├── mp.ts                # SDK Mercado Pago (server only, lazy init) + getMerchantOrder
+│   ├── email.ts             # Wrapper de Resend (confirmación, transfer, cancel, admin notif)
+│   ├── orderProcessing.ts   # processApprovedPayment + markOrderCancelled (compartido)
+│   ├── rateLimit.ts         # Rate limiting con Upstash (degrada a "deja pasar")
+│   ├── checkoutSchema.ts    # Zod schemas del checkout
+│   ├── profileSchema.ts     # Zod schema del perfil de cuenta
+│   ├── types.ts             # Tipos compartidos + Database (incluye campos shipping/carrier)
+│   ├── db.ts                # Tipos StrictUpdate/Insert derivados de Database
+│   ├── shippingOptions.ts   # 1 zona → N carriers (Correo Argentino + Moto por CP)
+│   ├── shippingZones.ts     # 9 zonas hardcoded por rango de CP + costos
+│   ├── carriers.ts          # CarrierId ('correo_argentino' | 'motomensajeria') + tracking URL
+│   ├── provinces.ts         # 24 jurisdicciones + lookup por CP/ciudad + mismatch
+│   ├── leagues.ts           # Ligas dinámicas desde DB (cache 60s + fallback)
+│   ├── productImages.ts     # Helpers de imágenes (cover + múltiples)
+│   ├── bankInfo.ts          # Datos de transferencia + TRANSFER_DISCOUNT
+│   └── ...
 ├── pages/
-│   ├── api/            # Endpoints server-side
+│   ├── api/            # Endpoints server-side (todos con prerender=false)
 │   │   ├── checkout.ts
+│   │   ├── profile.ts
 │   │   ├── webhooks/mercadopago.ts
-│   │   ├── orders/[id].ts
-│   │   └── products/...
-│   ├── auth/           # Callbacks OAuth, verificación
-│   ├── camisetas/      # Detalle de producto
+│   │   ├── orders/[id].ts     # POST (id+email timing-safe)
+│   │   ├── products/index.ts + [id].ts
+│   │   ├── shipping/quote.ts
+│   │   └── cron/cancel-expired-transfers.ts
+│   ├── auth/           # callback (server-side), recover, update-password, verificacion
+│   ├── camisetas/[id].astro  # Detalle de producto (gallery 3 imágenes + lightbox)
 │   ├── checkout.astro  # Form de checkout
-│   ├── pedido/         # Tracking de pedido
-│   └── *.astro         # Páginas públicas
+│   ├── pedido/         # [id].astro (tracking) + index.astro (lookup)
+│   ├── login.astro / registro.astro / cuenta.astro
+│   ├── productos.astro # Catálogo con filtros + búsqueda
+│   ├── 404.astro
+│   └── *.astro         # index, contacto, privacidad
 ├── stores/
-│   ├── AuthStore.ts    # Singleton auth
-│   └── CartStore.ts    # Singleton cart (localStorage con debounce)
-└── styles/global.css   # Estilos globales
+│   ├── AuthStore.ts    # Singleton auth (initialize idempotente, un solo onAuthStateChange)
+│   └── CartStore.ts    # Singleton cart (localStorage con debounce 200ms)
+└── styles/             # reset, tokens, typography, a11y, motion, utilities, global
 ```
 
 ### Stores
@@ -110,6 +132,8 @@ src/
 | Auth | Supabase Auth (email/pass + Google) | Ya implementado |
 | Carrito | localStorage (Fase 1). DB persistente (Fase 4) | Suficiente para v1, mejorar después |
 | Email transaccional | Resend free tier (3.000/mes) | $0 vs $25 de Supabase Pro. Auth usa Supabase default |
+| Envíos | **Correo Argentino** (todo el país, manual) + **Motomensajería** (solo CABA/GBA, coordinada por WA, pago obligatorio por transferencia) | Decisión final 2026-07-30. Sin API, precios hardcoded por zona |
+| Pago transferencia | **15% off sobre el subtotal** (no el envío) | `TRANSFER_DISCOUNT` en `bankInfo.ts` |
 
 ---
 
@@ -118,23 +142,37 @@ src/
 ```
 [CartDrawer] "Finalizar compra"
      ↓
-[Checkout page] Form: email, nombre, dirección, ciudad, CP
+[Checkout page] Form: email, nombre, teléfono, dirección, ciudad, provincia, CP
+     ↓
+CP con 4+ dígitos → GET /api/shipping/quote?cp=... (debounce 400ms)
+  └─ Devuelve opciones de envío para la zona: Correo Argentino (precio fijo) + Moto (solo CABA/GBA, "A coordinar")
      ↓
 POST /api/checkout
   ├─ Validar body con Zod
+  ├─ Validar shippingMethod con getOptionById (server) → si es moto, forzar paymentMethod='transfer'
   ├─ SELECT price, stock_quantity FROM product_variants WHERE id IN (...)
   ├─ Verificar stock_quantity >= quantity para todos
-  ├─ INSERT order { status: 'pending', email, customer_name, total_amount, ... }
+  ├─ INSERT order { status: 'pending' (MP) | 'awaiting_payment' (transfer), payment_method,
+  │                shipping_method: optionId, shipping_cost, carrier, ... }
   ├─ INSERT order_items
-  ├─ mercadopago.preferences.create({ items, payer, external_reference: orderId, back_urls, notification_url })
-  └─ return { init_point, orderId }
+  ├─ void sendAdminOrderNotification (fire-and-forget)
+  ├─ Si transfer:
+  │    ├─ Guarda bank_info_snapshot + transfer_expires_at (now() + 72h)
+  │    ├─ sendTransferInstructionsEmail (datos bancarios + WA link)
+  │    └─ return { transfer: true, orderId, bankInfo, whatsappUrl, transferExpiresAt }
+  ├─ Si MP_MOCK_MODE=true:
+  │    └─ processApprovedPayment(orderId, 'MOCK-...') → return { mock, init_point }
+  ├─ Si MP real:
+  │    ├─ mercadopago.preferences.create({ items + envío, payer, external_reference: orderId, back_urls, notification_url })
+  │    └─ return { init_point, orderId }
      ↓
-window.location = init_point
+window.location = init_point (MP) o /pedido/[orderId] (transfer)
      ↓
 Usuario paga en MP
      ↓
 POST /api/webhooks/mercadopago
-  ├─ Validar firma con `WebhookSignatureValidator` (SDK v3, HMAC, tolerance 5min)
+  ├─ Si topic/type = 'merchant_order' → getMerchantOrder + procesa cada payment (firma skipeada temporal, C13)
+  ├─ Validar firma con verifyMpSignature (v1 HMAC patched; v3 skipeada temporal)
   ├─ Idempotencia: INSERT en webhook_events con unique(provider, external_id). Si conflicto, 200 sin hacer nada.
   ├─ mercadopago.payment.findById(dataId)
   ├─ external_reference → orderId
@@ -151,7 +189,7 @@ POST /api/webhooks/mercadopago
      ↓
 MP redirige a back_urls.success → /pedido/[orderId]
      ↓
-[OrderTracking] Pide email → valida server-side en GET /api/orders/[id]
+[OrderTracking] Pide email → valida server-side en POST /api/orders/[id]
   (Endpoint usa service_role; valida id+email con comparación timing-safe)
 ```
 
@@ -159,36 +197,36 @@ MP redirige a back_urls.success → /pedido/[orderId]
 
 ## 6. Plan priorizado (reordenado 2026-07-27)
 
-### 6.1 Estado por sistema (snapshot 2026-07-27)
+> **ESTADO**: sitio **en producción** en `https://vakstoree.com` (dominio propio desde 2026-08-03). Las fases A–D y GA4 están cerradas. Quedan pendientes post-launch (og image, slugs, Schema.org, cleanup técnico FASE E, verificación de migraciones).
 
-| Sistema | Estado | Bloqueante para launch |
+### 6.1 Estado por sistema (snapshot post-launch 2026-08-20)
+
+| Sistema | Estado | Notas |
 |---|---|---|
-| Auth email | Sin probar E2E | 🟡 probable config |
-| Auth Google | No redirige | 🟡 probable config |
-| Recovery pass | ✅ Cerrado (R-404) | — |
-| Checkout guest + MP | ✅ E2E validado | — |
-| Checkout transfer | ⚠️ Email no llega a clientes reales (Resend no verificado) | 🟡 bug 3.5 |
-| Tracking | ✅ Sin tracking number (admin setea `shipped` manual) | — |
-| Shipping CA + Moto | ✅ CA nacional + Moto CABA/GBA (decisión final 2026-07-30) | — |
-| Emails a clientes | ⚠️ Solo llegan a vakindumentaria@gmail.com | 🟡 bug 3.5 |
-| Stock decrement | ✅ Validado | — |
-| Refund oversell | ✅ Validado | — |
-| Páginas legales | ✅ Implementadas (con placeholders del dueño) | — |
-| Catálogo + filtros + buscador | ✅ Funciona | — |
-| SEO | ⚠️ Falta sitemap, robots.txt, og image, noindex en filtros | 🟢 backlog |
+| Auth email (signup/login/recovery) | ✅ E2E validado | Recovery pass R-404 cerrado 2026-07-28 |
+| Auth Google | ✅ E2E validado | G-OAuth + G-CB cerrados 2026-08-03 (config + callback server-side) |
+| Checkout guest + MP | ✅ E2E validado | Compra real productiva |
+| Checkout transfer | ✅ E2E validado | Email de instrucciones llega real (`hola@vakstoree.com`) |
+| Tracking | ✅ Funciona | Admin setea `shipped` manual; sin tracking number por diseño |
+| Shipping CA + Moto | ✅ Implementado | CA nacional + Moto CABA/GBA (decisión final 2026-07-30) |
+| Emails a clientes | ✅ Reales | Resend con dominio verificado `vakstoree.com` |
+| Stock decrement | ✅ Validado | RPC atómica `decrement_stock` |
+| Refund oversell | ✅ Validado | E2E 2026-06-29 (`refundId=3144751258`) |
+| Páginas legales | ✅ Implementadas | Placeholder de WhatsApp en privacidad pendiente (línea 114) |
+| Catálogo + filtros + buscador | ✅ Funciona | Ligas dinámicas desde DB + ILIKE search (Fase 3.8) |
+| Galería producto (3 imágenes + lightbox) | ✅ Implementado | Commit fe7776f (2026-08-05) |
+| SEO | ⚠️ Parcial | Sitemap + robots + noindex en filtros hechos. Falta og image (D3), slugs (D7), Schema.org (D8) |
 
-### 6.2 🟥 FASE A — Auth bloqueante (PRÓXIMA SESIÓN, 1-2 hs)
+### ✅ FASE A — Auth bloqueante (cerrada 2026-08-03)
 
-Objetivo: cualquier visitante puede crear cuenta, loguearse, recuperar pass.
+> **CERRADA**. Signup email, login email, login Google y recovery password funcionan E2E. Detalle histórico de la implementación abajo.
 
-| # | Tarea | Esfuerzo | Tipo | Bloqueado por |
+| # | Tarea | Esfuerzo | Tipo | Estado |
 |---|---|---|---|---|
-| **A1** | Crear `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx` | ✅ cerrado 2026-07-28 | código | — |
-| **A2** | Diagnosticar Google OAuth: config Supabase + Google Cloud | 5-20 min (dueño) | config | — |
-| **A3** | Probar signup email + recovery E2E | 10 min (dueño) | test | A1 |
-| **A4** | Fix config Google OAuth según A2 | 10-20 min (dueño) | config | A2 |
-
-**Cierre de fase**: signup email, login email, login Google, recovery password funcionan E2E. Bugs R-404 y G-OAuth cerrados.
+| **A1** | Crear `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx` | ✅ cerrado 2026-07-28 | código | ✅ |
+| **A2** | Diagnosticar Google OAuth: config Supabase + Google Cloud | ✅ cerrado 2026-08-03 | config | ✅ |
+| **A3** | Probar signup email + recovery E2E | ✅ validado | test | ✅ |
+| **A4** | Fix config Google OAuth según A2 | ✅ cerrado 2026-08-03 | config | ✅ |
 
 **Diagnóstico Google OAuth (A2 — paso a paso para el dueño):**
 1. Supabase Dashboard → Authentication → Providers → Google
@@ -201,23 +239,23 @@ Objetivo: cualquier visitante puede crear cuenta, loguearse, recuperar pass.
    - Authorized redirect URI: `https://<tu-project>.supabase.co/auth/v1/callback`
    - Copiar Client ID + Secret a Supabase
 3. Supabase → Authentication → URL Configuration:
-   - Site URL = `https://vak-store.vercel.app`
+   - Site URL = `https://vakstoree.com` (o `https://vak-store.vercel.app` en la época del diagnóstico)
    - Redirect URLs debe incluir `/auth/callback`
 4. Probar de nuevo y mirar consola del browser
 
 **Por qué no es bug de código**: `src/stores/AuthStore.ts:73-78` usa `signInWithOAuth({ provider: 'google', redirectTo: '/auth/callback' })`. Eso es correcto. El problema está aguas arriba (Supabase no inicia el OAuth porque el provider no está bien configurado).
 
-### 6.3 🟧 FASE B — Salir a producción (1 sesión, depende del dueño)
+### ✅ FASE B — Salir a producción (cerrada 2026-08-03)
 
-Objetivo: mails reales a clientes + notif al admin funcional.
+> **CERRADA**. Emails reales a clientes + notif al admin funcional. Dominio `vakstoree.com` en producción.
 
-| # | Tarea | Esfuerzo | Tipo | Bloqueado por |
+| # | Tarea | Esfuerzo | Tipo | Estado |
 |---|---|---|---|---|
-| **B1** | Dueño compra dominio + verifica en Resend (DKIM + SPF) | 30 min (dueño) | dueño | — |
-| **B2** | Setear `CRON_SECRET` en Vercel (3 envs) | 2 min (dueño) | config | — |
-| **B3** | Setear `ADMIN_EMAIL` en Vercel | 1 min (dueño) | config | — |
-| **B4** | URL real Facebook → `src/pages/contacto.astro:11` + `src/components/Footer.astro:24` | 5 min | código | dueño da URL |
-| **B5** | Test E2E: comprar real → verificar email al cliente | 10 min (dueño) | test | B1 |
+| **B1** | Dueño compra dominio + verifica en Resend (DKIM + SPF) | 30 min (dueño) | dueño | ✅ cerrado 2026-08-03 |
+| **B2** | Setear `CRON_SECRET` en Vercel (3 envs) | 2 min (dueño) | config | ✅ cerrado 2026-08-03 |
+| **B3** | Setear `ADMIN_EMAIL` en Vercel | 1 min (dueño) | config | ✅ cerrado 2026-08-03 |
+| **B4** | ~~URL real Facebook → contacto + Footer~~ | — | — | ✅ **N/A**: el sitio ya no tiene Facebook (solo WA/Email/Instagram) |
+| **B5** | Test E2E: comprar real → verificar email al cliente | 10 min (dueño) | test | ✅ cerrado 2026-08-03 (smoke test transfer + MP) |
 
 **Cierre de fase**: clientes reciben emails reales (confirmación, transfer, cancelación), admin recibe notif de cada orden, cron de auto-cancel funciona. Bug 3.5 cerrado.
 
@@ -233,7 +271,7 @@ Objetivo: mails reales a clientes + notif al admin funcional.
   - WhatsApp público formato E.164 (línea 113) — puede ser el mismo `PUBLIC_WHATSAPP_NUMBER` de Vercel
   - Todos visibles al público en la página legal
 
-### 6.4 🟨 FASE C — Shipping (decisión previa, ~1 sesión implementación)
+### ✅ FASE C — Shipping (cerrada 2026-07-30)
 
 **Origen de la decisión** (sesión 2026-07-27): Andreani se evaluó como muy caro. Se replantea el approach de §3.10.
 
@@ -249,9 +287,9 @@ Objetivo: mails reales a clientes + notif al admin funcional.
 
 **Recomendación**: MercadoEnvíos. Cero código nuevo, MP ya lo integró. Si el volumen crece (>15/semana) o se quiere ofrecer opciones sin pasar por MP, evaluar EnvioPack.
 
-**Estado**: ✅ Cerrado 2026-07-30. Decisión final pre-launch: **Correo Argentino manual "particular" para todo el país + Motomensajería para CABA/GBA** (coordinada por WhatsApp, pago por transferencia). Pricing hardcoded por zona en `src/lib/shippingZones.ts`. Sin API, sin etiqueta auto, sin tracking number real. Admin setea `status='shipped'` manual cuando lleva el paquete al CA. Ver §6.7 "Decisión final de envíos pre-launch (2026-07-30)" para el detalle de implementación, pricing por zona y admin workflow. El plan multi-carrier de §3.10 queda como referencia histórica.
+**Estado**: ✅ Cerrado 2026-07-30. Decisión final pre-launch: **Correo Argentino manual "particular" para todo el país + Motomensajería para CABA/GBA** (coordinada por WhatsApp, pago por transferencia). Pricing hardcoded por zona en `src/lib/shippingZones.ts` (9 zonas, ver §Fase 3.6 para los valores vigentes). Sin API, sin etiqueta auto, sin tracking number real. Admin setea `status='shipped'` manual cuando lleva el paquete al CA. Ver §6.7 "Decisión final de envíos pre-launch (2026-07-30)" para el detalle de implementación, pricing por zona y admin workflow. El plan multi-carrier de §3.10 queda como referencia histórica.
 
-### 6.5 🟩 FASE D — Polish pre-launch (1 sesión, 2-3 hs)
+### 🟩 FASE D — Polish SEO pre-launch (parcialmente cerrada 2026-08-03)
 
 Backlog de Fase 3.9. Resuelve SEO + archivos públicos antes de empezar a posicionar.
 
@@ -259,12 +297,12 @@ Backlog de Fase 3.9. Resuelve SEO + archivos públicos antes de empezar a posici
 |---|---|---|---|
 | **D1** | `public/robots.txt` — permitir todo salvo `/api/`, `/pedido/`, `/cuenta/` | 2 min | ✅ cerrado 2026-08-03 |
 | **D2** | `src/pages/404.astro` — layout con link a `/` y `/productos` | 20 min | ✅ cerrado 2026-08-03 |
-| **D3** | `public/images/og-default.png` (1200×630) — generar o pedir a diseñador | pendiente | 🟡 pendiente pre-launch |
+| **D3** | `public/images/og-default.png` (1200×630) — generar o pedir a diseñador | pendiente | 🟡 **pendiente post-launch** (Layout.astro:18 ya lo referencia como default) |
 | **D4** | Sitemap (`@astrojs/sitemap` + integration en `astro.config.mjs` con `site: 'https://vakstoree.com'`) | 15 min | ✅ cerrado 2026-08-03 |
 | **D5** | `noindex` en `/productos` con filtros (`src/pages/productos.astro:24` → `<Layout ... noindex={Boolean(q || hasFilters)}>`) | 1 min | ✅ cerrado 2026-08-03 |
-| **D6** | Verificar migraciones 002/003 aplicadas en prod (query a `information_schema.columns`) | 2 min | pendiente |
-| **D7** | Slugs en URLs producto (`src/pages/productos/[slug].astro`, mig 005) | 2-3 hs | pendiente (post-launch) |
-| **D8** | Schema.org structured data en producto (`src/components/ProductSchema.tsx`) | 30 min | pendiente (post-launch) |
+| **D6** | Verificar migraciones 002/003/004/005 aplicadas en prod (query a `information_schema.columns`) | 2 min | 🟡 pendiente (verificar en próxima sesión) |
+| **D7** | Slugs en URLs producto (migración nueva para columna `slug` + página `productos/[slug].astro` + redirects 301) | 2-3 hs | 🟡 pendiente (post-launch) |
+| **D8** | Schema.org structured data en producto (`src/components/ProductSchema.tsx`) | 30 min | 🟡 pendiente (post-launch) |
 | **D9** | Analytics — reemplazado por FASE GA4 (Google Analytics 4 con opt-in) | — | ✅ ver FASE GA4 abajo |
 
 **Batch D+E+F webhooks** (originalmente en current focus): reubicado en §6.6 E1.
@@ -372,11 +410,11 @@ GA4 no requiere opt-in por la Ley 25.326 argentina (solo informar al usuario), p
 - [x] **📝 SEO pre-launch (FASE D1+D2+D4+D5, 2026-08-03)** — Cerrados 4 de los 9 items de §6.5 FASE D en un solo batch. (D1) `public/robots.txt` creado con `Disallow: /api/`, `/pedido/`, `/cuenta/`, `/login`, `/registro`, `/checkout`, `/auth/`. (D2) `src/pages/404.astro` con Layout + `noindex` + CTA a home y productos, estilo coherente con el resto del sitio. (D4) `astro.config.mjs`: `site: 'https://vakstoree.com'` + integration `@astrojs/sitemap` con filter que excluye páginas privadas. Sitemap generado con 4 URLs públicas (home, contacto, privacidad, productos). (D5) `src/pages/productos.astro:24` ahora pasa `noindex={Boolean(q || hasFilters)}` al Layout. Description ajustada a "camisetas de fútbol **importadas**" (no originales) en home y catálogo. **Pendientes D6, D7, D8**: migraciones 002/003 en prod, slugs en URLs producto, Schema.org structured data. Los 3 son post-launch.
 - [x] **📄 `.env.example` creado (2026-08-03)** — Archivo nuevo con las 16 env vars de §2 documentadas: `PUBLIC_*` agrupadas arriba (visibles al cliente), server-only con warning "NUNCA importar en código del cliente", opcionales al final (Sentry, Upstash, mock mode). Referencia para nuevos devs y para verificar qué env vars son necesarias.
 - [x] **📚 AGENTS.md actualizado (2026-08-03)** — §2 (Variables de entorno) extendido con `PUBLIC_GA_ID`. `RESEND_FROM_EMAIL` actualizado de `onboarding@resend.dev` (default) al estado real pre-launch. §6.5 FASE D: items D1, D2, D4, D5 marcados como cerrados con fecha. D3, D6, D7, D8 mantienen su estado. D9 marcado como reemplazado por FASE GA4. Nueva sección §FASE GA4 agregada entre FASE D y FASE E. §6.7 Cambios recientes extendido con 8 nuevas entradas (los 3 bugs del Batch A, link "Ofertas" eliminado, dominio, Google OAuth, GA4, SEO, `.env.example`, este mismo update).
-- [x] **🐛 CRÍTICO — B-GA4-Silent-Skip cerrado (2026-08-03)** — Bug crítico en la implementación de GA4: el script en `Layout.astro` envolvía toda la inicialización de gtag en un `if (localStorage.getItem('cookie-consent') === 'accepted')`. **Causa raíz doble:** (1) El `CookieBanner` tenía un `try/catch` silencioso en `persist()` que podía estar catcheando errores de localStorage sin loggearlos, dejando `cookie-consent` vacío o sin guardar. (2) Aún si el banner persistía bien, el approach "cargar gtag solo si consent === accepted" es frágil: si por cualquier razón el localStorage no tiene el valor exacto, gtag.js NUNCA se carga, `typeof gtag === 'undefined'`, y GA4 nunca recibe hits. **Síntoma observable:** el panel de GA4 muestra "Todavía no se han recibido datos de tu sitio web" indefinidamente, aunque `PUBLIC_GA_ID` esté bien configurado en Vercel y el script se deploye correctamente. **Fix aplicado en `Layout.astro`:** reemplazar el approach por 3 scripts separados — (a) inicializa gtag con `consent: 'default'` `analytics_storage: 'denied'`, (b) lee localStorage y si está `'accepted'` actualiza a `'granted'`, (c) carga gtag.js dinámicamente con guard de no duplicar. `typeof gtag` ahora siempre es `'function'`. **Fix en `CookieBanner.tsx`:** `useEffect` ahora tiene `try/catch` con `console.error`, `persist()` también loguea errores en vez de silenciar. **Lección:** NUNCA uses `if (localStorage.getItem(...) === ...)` para gatear la carga de un script de analytics crítico. El control de privacidad debe hacerse via consent mode de GA (`denied` vs `granted`), no via carga condicional del script. Si el localStorage falla, gtag se inicializa igual con `denied` y NO trackea — pero el script existe y GA puede detectar el Data Stream. C36 cerrado.
-- [x] **🔁 Fix del fix: `gtag('config', gaId)` faltante (2026-08-03)** — El primer intento de fix de GA4 agregaba `gtag('config', gaId)` adentro del `if (consent === 'accepted')`. Pero como ese `if` no se cumplía (bug del CookieBanner), el config nunca corría. El segundo fix (C36) separa la inicialización del consent check, resolviendo ambos problemas de raíz.
-- [x] **📊 GA4 implementado en código (2026-08-03)** — Script de gtag.js agregado a `Layout.astro` con carga **condicional al consentimiento** del CookieBanner. El `<script is:inline>` chequea `localStorage.getItem('cookie-consent') === 'accepted'` antes de inyectar dinámicamente el script de `googletagmanager.com`. Antes de cargar, dispara `gtag('consent', 'update', { analytics_storage: 'granted' })` para que el consent mode de GA se actualice. CookieBanner (`src/components/CookieBanner.tsx`) actualizado: el texto ahora menciona que "si aceptás, también cargamos Google Analytics para entender cómo usás el sitio y mejorarlo". CSP en `vercel.json` extendido con allowlist de `googletagmanager.com` (script-src) y `google-analytics.com` (connect-src). `PUBLIC_GA_ID=G-8LQZKZ5FM3` documentado en `.env.example` (pendiente setear en Vercel 3 envs).
-
-#### Tabla de status (modelo final 2026-07-30)
+- [x] **🚀 Prelaunch cleanup (2026-08-04, commit 9a7b0fc)** — Chore de limpieza pre-launch: link de Facebook eliminado de `Footer.astro` y `Nav.astro` (el sitio solo mantiene WA/Email/Instagram), `MobileMenu.tsx` simplificado (removido link "Ofertas"), `bankInfo.ts` y `privacidad.astro` con CUIT real (`20-47144775-8`), `contacto.astro` sin la card de Facebook.
+- [x] **🖼 Galería de producto con 3 imágenes + lightbox (2026-08-05, commit fe7776f)** — `ProductDetail.tsx` ahora muestra hasta 3 imágenes del producto con lightbox fullscreen (ampliar al click, navegación con flechas, `useEscape` para cerrar). Helpers nuevos en `src/lib/productImages.ts` (`getCoverImage`, `hasMultipleImages`). `ProductGrid` usa la cover. `OrderTracking` muestra la imagen del item. CSS en `ProductDetail.module.css`.
+- [x] **📦 Disclaimer de Correo Argentino (2026-08-05, commit 98860f0)** — `CheckoutForm.tsx` muestra un warning card cuando se elige Correo Argentino: pide el nombre completo del titular que retira el paquete tal cual el DNI (el correo exige DNI físico original). Data en `shippingOptions.ts` (description de la opción correo usa `zone.description`).
+- [x] **🏷 Filtros dinámicos de ligas (2026-08-15, commit f64b3d8)** — `src/lib/leagues.ts` y `src/pages/productos.astro` ajustados para que las ligas del sidebar se lean dinámicamente de la DB (cache 60s + fallback). Fix sobre la implementación inicial de Fase 3.8.
+- [x] **📚 AGENTS.md actualizado post-launch (2026-08-24)** — Este update. Marca el proyecto como post-launch (producción en `vakstoree.com`), cierra FASE A/B/C/D, corrige precios de zonas de envío y carriers (Andreani eliminado → CA + Moto), actualiza el árbol de arquitectura con archivos reales, consolida las entradas duplicadas de GA4 y deja como pendientes reales D3/D6/D7/D8 + FASE E.
 
 | Status | Quién lo setea | Cuándo | Lo que ve el cliente |
 |---|---|---|---|
@@ -806,8 +844,8 @@ no se justificaban. Se optó por un **"EnvioPack casero"**: pricing por zona +
 tracking manual pegado desde el panel del carrier. La etiqueta física la entrega
 el propio carrier al momento de cargar el envío; no generamos etiqueta propia.
 
-#### Schema (`scripts/migrations/003_add_tracking.sql`, **pendiente de aplicar**)
-- `orders.carrier` text, CHECK (`'andreani'` | `'correo_argentino'`, nullable)
+#### Schema (`scripts/migrations/003_add_tracking.sql`, **aplicada 2026-06-30**)
+- `orders.carrier` text, CHECK (`'andreani'` | `'correo_argentino'`, nullable) → **luego migración 005** lo cambia a `('correo_argentino' | 'motomensajeria', nullable)` y nulifica `'andreani'`
 - `orders.tracking_number` text, nullable
 - `orders.shipped_at` timestamptz, nullable
 
@@ -815,19 +853,19 @@ Las 3 columnas son opcionales (NULL permitido) para no romper órdenes existente
 El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 
 #### Pricing por zona (`src/lib/shippingZones.ts`)
-- 8 zonas hardcoded por rango de CP argentino + fallback `nacional` $5.000:
-  CABA $3.000 · GBA $4.000 · Buenos Aires $5.500 · Centro $6.500 · Litoral $7.000 ·
-  NOA $8.000 · Cuyo $8.500 · Patagonia $11.000
+- **9 zonas hardcoded por rango de CP argentino + fallback `nacional`** (actualizado 2026-07-31, commit `a771000`):
+  CABA $5.500 · GBA $7.500 · Buenos Aires $7.500 · Centro $8.000 · Litoral $8.000 ·
+  Cuyo $8.000 · NOA $8.800 · Patagonia $8.800 · nacional $8.000
 - `getZoneForCP(cp)` → strip letras, primeros 4 dígitos, match contra rangos
-- Endpoint `GET /api/shipping/quote?cp=...` devuelve `{ detected, options }`
-- Checkout: el **server computa el costo desde el zone id** (no confía en el client). Ver C14.
+- Endpoint `GET /api/shipping/quote?cp=...` devuelve `{ cp, detected, options }` donde `options` son **ShippingOption[]** (Correo Argentino + opcional Moto) via `getOptionsForCP`. Ver `shippingOptions.ts`.
+- Checkout: el **server computa el costo desde `getOptionById(shippingMethod)`** (no confía en el client). Ver C14.
 - Tabla `shipping_methods` queda sin uso por ahora; se mantiene para futura integración con EnvioPack
 
 #### Tracking para el cliente
-- 2 carriers soportados en `src/lib/carriers.ts`: **Andreani**, **Correo Argentino** (sin OCA)
-- `getTrackingUrl(carrierId, nro)` → URL deep-link al tracking del carrier
+- 2 carriers soportados en `src/lib/carriers.ts`: **Correo Argentino** (todo el país) y **Motomensajería** (CABA/GBA, sin tracking URL). Andreani eliminado (migración 005).
+- `getTrackingUrl(carrierId, nro)` → URL deep-link al tracking del carrier (`motomensajeria` devuelve `null`)
 - `getCarrier(carrierId)` → metadata para mostrar nombre
-- Flujo admin: Supabase Dashboard → editar `orders` → setear `carrier='andreani'`, `tracking_number='123456'`, `shipped_at=now()`
+- Flujo admin: Supabase Dashboard → editar `orders` → setear `carrier='correo_argentino'`, `tracking_number='123456'`, `shipped_at=now()` (para moto no hay tracking number)
 - OrderTracking muestra card violeta con carrier + número + link "Rastrear en…" cuando ambos campos están populados
 
 #### Archivos creados
@@ -870,40 +908,39 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 > **Cuándo usar este checklist**: pre-release que toque `OrderTracking.tsx` / `carriers.ts` / render de la card, o la primera vez que se carga un envío real para un cliente.
 
 ##### Pre-condición
-- [x ] Orden existente con `status ∈ {paid, processing, shipped, delivered}` y al menos un `order_item`. Si no hay, generar una con `MP_MOCK_MODE=true`.
+- [ ] Orden existente con `status ∈ {paid, processing, shipped, delivered}` y al menos un `order_item`. Si no hay, generar una con `MP_MOCK_MODE=true`.
 - [ ] La orden NO debe tener `carrier` ni `tracking_number` (estado limpio).
 - [ ] Sesión con acceso a `/pedido/[id]?email=<orderEmail>` (ver C5/C6).
 
-##### Test 1 — Render con Andreani
+##### Test 1 — Render con Correo Argentino
 1. Supabase Dashboard → tabla `orders` → editar la orden:
-   - `carrier = 'andreani'`
-   - `tracking_number = 'TEST12345'`
+   - `carrier = 'correo_argentino'`
+   - `tracking_number = 'CA9876'`
    - `shipped_at = now()`
 2. Recargar `/pedido/[id]?email=<orderEmail>`.
 3. Verificar:
    - [ ] Aparece card violeta con título "Seguimiento de envío"
-   - [ ] "Carrier" muestra "Andreani"
-   - [ ] "Número de tracking" muestra `TEST12345`
+   - [ ] "Carrier" muestra "Correo Argentino"
+   - [ ] "Número de tracking" muestra `CA9876`
    - [ ] "Enviado el" muestra fecha en formato `es-AR`
-   - [ ] Link "Rastrear en Andreani" presente
+   - [ ] Link "Rastrear en Correo Argentino" presente
 
 ##### Test 2 — URL del link
-- [x ] Click → URL = `https://www.andreani.com/envio/TEST12345`
+- [ ] Click → URL = `https://www.correoargentino.com.ar/consulta-de-envio?nro=CA9876`
 - [ ] Repetir con `tracking_number='ABC 123/XYZ'` → URL contiene `%20` y `%2F` (`encodeURIComponent` aplica)
 
-##### Test 3 — Repetir con Correo Argentino
-1. Misma orden → `carrier='correo_argentino'`, `tracking_number='CA9876'`
+##### Test 3 — Sin tracking (moto / sin número)
+1. Misma orden → `carrier='motomensajeria'`, `tracking_number=null`
 2. Recargar `/pedido/[id]?email=<orderEmail>`
-3. Card muestra "Correo Argentino" + número
-- [ ] URL del link = `https://www.correoargentino.com.ar/consulta-de-envio?nro=CA9876`
+3. La card de tracking NO aparece (gating requiere `tracking_number`). El render de `shipped` muestra "Coordinado por moto" sin link.
 
 ##### Test 4 — Gating (regression crítico)
 | Estado | Comportamiento esperado |
 |---|---|
 | `carrier=null` y `tracking_number=null` | NO aparece card |
-| `carrier='andreani'` y `tracking_number=null` | NO aparece card (gating requiere ambos) |
+| `carrier='correo_argentino'` y `tracking_number=null` | NO aparece card (gating requiere ambos) |
 | `carrier=null` y `tracking_number='TEST'` | NO aparece card |
-| `carrier='oca'` y `tracking_number='TEST'` | Aparece card con nombre fallback "oca" + link roto. **Esperado**: no se valida carrier contra whitelist, se confía en el paste admin. Corregir en Supabase. |
+| `carrier='andreani'` y `tracking_number='TEST'` | Aparece card con nombre fallback "andreani" + link roto. **Esperado**: no se valida carrier contra whitelist; el nombre se lee de `getCarrier` o fallback raw. Los datos se corrigen en Supabase (y la migración 005 nulifica los `andreani` viejos). |
 
 ##### Cleanup
 - [ ] Restaurar la orden: `carrier=null`, `tracking_number=null`, `shipped_at=null` para no dejar datos de prueba en la DB
@@ -911,14 +948,14 @@ El CHECK permite `carrier IS NULL` → compatible con órdenes pre-migración.
 ##### Edge cases a recordar
 | Caso | Comportamiento |
 |---|---|
-| `carrier` con typo (`'andriani'`) | Card muestra el string raw como nombre + link roto a `andreani.com/envio/...`. Corregir en Supabase. |
+| `carrier` con typo (`'correo_argentino'` escrito mal) | Card muestra el string raw como nombre + link roto a `correoargentino.com.ar/...`. Corregir en Supabase. |
 | `tracking_number` con espacios/slashes | `encodeURIComponent` los maneja → URL válida. |
 | `shipped_at` en timezone raro | `toLocaleDateString('es-AR')` normaliza al timezone del browser del cliente. |
 | Status `cancelled` con carrier pegado | La card SÍ se renderiza (gating es solo por carrier+tracking_number, no por status). Decisión consciente: útil ver el tracking aunque el pedido se canceló. |
 
 ### ✅ Fase 3.7 — Validaciones post-checkout + notificación al admin
 
-> **Cerrado en código + DB 2026-06-30.** Migración 003 aplicada (5 columnas: carrier, tracking_number, shipped_at, phone, province). Migración 002 aplicada retroactivamente ese mismo día (ver bug crítico). Bug 3.5 (Resend) sigue bloqueando el email real al admin hasta que se verifique un dominio.
+> **Cerrado en código + DB 2026-06-30.** Migración 003 aplicada (5 columnas: carrier, tracking_number, shipped_at, phone, province). Migración 002 aplicada retroactivamente ese mismo día (ver bug crítico). El bug 3.5 (Resend) bloqueaba el email real al admin hasta verificar el dominio — **resuelto 2026-08-03** (dominio `vakstoree.com` verificado en Resend).
 
 Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 - Teléfono del cliente (crítico para que el carrier coordine la entrega)
@@ -976,7 +1013,7 @@ Cierra los 3 gaps de alto impacto del flujo post-venta que quedaron en Fase 3.6:
 |---|---|
 | `ADMIN_EMAIL` no seteado | Log warning + skip. No rompe el checkout. |
 | Resend falla o no configurado | Log error. No rompe el checkout. |
-| Email al admin rebota | Bug 3.5: dominio no verificado. Mismo blocker que emails a clientes. |
+| Email al admin rebota | ~~Bug 3.5~~ — resuelto 2026-08-03: dominio `vakstoree.com` verificado en Resend. Verificar que `RESEND_FROM_EMAIL` sea de ese dominio. |
 | User ignora el warning CP vs ciudad | La provincia puede corregirse después manualmente en Supabase. |
 | Keyword de ciudad no matchea (ej. pueblo chico) | El warning no aparece, pero el user puede cambiar la provincia manualmente. |
 
@@ -1045,7 +1082,7 @@ new row for relation "orders" violates check constraint "orders_status_check"
 
 **Lección:** Cuando agregás un valor a un literal/union de TypeScript, **SIEMPRE verificar si existe un CHECK constraint en el DB para esa columna**. Si existe, agregarlo en la misma migración. Ver el "Pre-migration checklist" arriba.
 
-#### 🔴 Crítico — Webhook `topic=merchant_order` no soportado (2026-06-11)
+#### 🔴 Crítico — Webhook `topic=merchant_order` no soportado (RESUELTO 2026-06-11)
 
 **Síntoma** (Vercel log 2026-06-11 15:24:25):
 - POST con `body.topic='merchant_order'`, `body.resource='https://api.mercadolibre.com/merchant_orders/41734750025'`
@@ -1059,20 +1096,19 @@ new row for relation "orders" violates check constraint "orders_status_check"
 
 **Por qué no se puede "elegir" qué envía MP**: en la cuenta actual (~50% onboarding) el panel solo permite registrar webhooks de tipo `merchant_order`. No hay opción v3 pura de `payment` desde el panel. Reintentado en sesión previa sin éxito.
 
-**Fix planeado (NO implementado)**: ver `audit/post-compra-2026-06-11.md` sección "Plan de fix merchant_order". Implementación diferida — `MP_MOCK_MODE` funciona en paralelo como path de validación.
+**Fix aplicado** (commit 612488d): `src/pages/api/webhooks/mercadopago.ts` ahora detecta `topic/type === 'merchant_order'`, skipea la validación de firma para ese caso (temporal, ver C13), resuelve el `merchant_order_id` vía `getMerchantOrder(dataId)` en `src/lib/mp.ts`, y procesa cada payment del merchant order con `processSinglePayment`. La firma del merchant_order se validaba con `WebhookSignatureValidator` calibrada para `payment` → `SignatureMismatch`; hoy se maneja con el skip temporal de C13 + idempotencia en `webhook_events`. **Pendiente (FASE E2)**: debug del manifest format de v3 para re-habilitar la validación HMAC de firma.
 
 #### 🔴 Alta prioridad (afectan directamente al cliente)
 - [x] **R-404** — *Cerrado 2026-07-28.* Creado `src/pages/auth/update-password.astro` + `src/components/UpdatePasswordForm.tsx` (8 chars min, confirm password, session check on mount → redirect a `/login?error=invalid_recovery_link` sin sesión). LoginForm ahora muestra mensaje contextual para `?reset=ok` (success) y `?error=invalid_recovery_link` (error específico). C27 también cerrado: `UPDATE_PASSWORD_PATH` + `AUTH_CALLBACK_PATH` centralizados en `src/lib/auth.ts`, AuthStore importa de ahí en vez de hardcodear. Pendiente: A3 test E2E del dueño, A2/A4 config Google OAuth.
-- [ ] **G-OAuth** — *Descubierto 2026-07-27.* Click "Continuar con Google" en `/login` no redirige a Google. El código parece OK (`AuthStore.ts:73-78` usa `signInWithOAuth({ provider: 'google', redirectTo: '/auth/callback' })` + `callback.astro` hace `exchangeCodeForSession`). 99% problema de config aguas arriba:
-  **Fix:** ver FASE A2+A4 del §6.2 para paso a paso. Sin cambios de código. Estimado dueño: 5-20 min según estado actual de la config.
+- [x] **G-OAuth** — *Cerrado 2026-08-03.* Click "Continuar con Google" en `/login` no redirigía a Google. Era 100% problema de config aguas arriba (Google Cloud Console + Supabase Providers). Resuelto E2E: proyecto `vak-store` en Google Cloud, OAuth 2.0 Client (Web), redirect URI de Supabase, Client ID/Secret cargados, Site URL + Redirect URLs en el dominio custom. Ver FASE A2+A4 del §6.2.
 - [x] **G-CB** — *Cerrado 2026-07-28.* Después de configurar Google OAuth (G-OAuth resuelto por el dueño), el callback fallaba con `PKCE code verifier not found in storage` y dejaba al user en `/login?error=...` sin completar el login. Causa raíz: `src/pages/auth/callback.astro` corría el `exchangeCodeForSession` en un `<script>` client-side, pero el PKCE code verifier no estaba disponible en el browser storage después del redirect cross-site de Google. Fix: `callback.astro` ahora hace el exchange **server-side** en el frontmatter usando `getSupabaseServer(Astro)` (que ya existía, AGENTS.md §7 convención). Bonus: `src/lib/supabaseServer.ts:33-36` `setAll` ahora pasa las `options` del library (`SameSite`, `Secure`, etc.) en vez de hardcodear `path: '/'` — el library setea `SameSite=None; Secure` en producción para que las cookies de session sobrevivan el redirect. También se agregó soporte `?next=` en el callback (LoginForm lee `?redirect=` y lo pasa como `?next=` al iniciar el OAuth). C28 y C29 cerrados.
 - [x] **P-Focus** — *Cerrado 2026-07-28.* En `/registro`, el input de contraseña perdía focus al tipear la primera letra, obligando al user a hacer click de nuevo para seguir tipeando (experiencia tosca). Causa raíz: `Field` (`src/components/Primitives/Field.tsx:46-65`) tiene 3 code paths según `Children.toArray(children).length` (0, 1, 2+). El strength meter de `RegisterForm.tsx:148-158` se renderizaba como `{password.length > 0 && <div>...</div>}`, cambiando el length de children de 1 a 2 entre renders. React re-montaba el `PasswordInput` (y su `<input>` interno), perdiendo el focus. Fix: envolver el strength meter en un `<div>` siempre presente con `style={{ display: password.length > 0 ? 'block' : 'none' }}`. Estructura estable (siempre 2 children), reconciliación preserva la instancia, focus intacto. C30 cerrado.
 - [x] **P-Strength** — *Cerrado 2026-07-28.* `getPasswordStrength` en `RegisterForm.tsx:12-21` mostraba "Fuerte" para contraseñas de 1-5 chars. Causa: los 3 checks de score fallaban (no llegaba a 6 chars) → `score=0`. El `if (score === 1)` y `if (score === 2)` no matcheaban, entonces caía al `return { score: 3, label: 'Fuerte' }` final (fall-through cubría score 0). Fix: agregar caso explícito `if (score === 0) return { score: 0, label: 'Muy débil' }` antes de los otros. C31 cerrado.
 - [x] **V-Login** — *Cerrado 2026-07-28.* Después de verificar el email, Supabase redirigía a la Site URL (la home) en vez de una página que manejara la sesión. Resultado: el user quedaba sin loguear, tenía que ir manualmente a `/login`. Causa: `signUp` en `AuthStore.ts` y `auth.ts` no seteaba `emailRedirectTo`, y `/auth/verificacion.astro` era una página estática sin lógica de auth. Fix: 2 cambios. (1) `signUp` ahora setea `emailRedirectTo: ${origin}/auth/verificacion` para que el redirect post-confirm vaya a una página controlable. (2) `/auth/verificacion` ahora es un React component (`src/components/Verificacion.tsx`) que llama `supabase.auth.getSession()` en mount — si hay sesión (post-confirm) redirige a `/`, si no muestra "Revisá tu email". C32 cerrado. Pendiente: customizar el template del email en Supabase Dashboard (ver pregunta del dueño sobre "como tocamso los templates del mail").
 - [x] **1.5** — Validar `customerEmail` antes de `sendOrderConfirmationEmail` y `sendOrderCancelledEmail` (string vacío → Resend falla silenciosamente). Aplicado en `src/lib/email.ts:90-117` y `:145-172`.
 - [x] **2.3** — Validar `dataId` con regex `/^\d+$/` antes de `payment.get()` (webhooks de prueba de MP con id `"0"` o vacío → 500). Aplicado en `src/pages/api/webhooks/mercadopago.ts:208-220`.
-- [ ] **3.5** — **Resend no manda emails a clientes reales (descubierto 2026-06-29)**. `RESEND_FROM_EMAIL=vakindumentaria@gmail.com` no es viable: Resend requiere un dominio propio verificado (gmail.com no se puede verificar). Descubierto durante validación del path oversell: el refund salió OK pero el email de cancelación nunca llegó (403 validation_error). **Fix:** comprar/registrar un dominio (NIC.ar, Namecheap, etc.), agregarlo en resend.com/domains, seguir el wizard de verificación DNS (DKIM + SPF), y cambiar `RESEND_FROM_EMAIL` a `algo@<dominio>`. No requiere cambios de código. Bloquea Fase 3.5 (transfer + shipping) que depende de emails a clientes. **Estado al cierre de Fase 3.5:** código cerrado, la card de datos bancarios en `/pedido/[id]` muestra la info client-side, pero el email con las instrucciones no llega a clientes reales hasta resolver bug 3.5. Resuelve FASE B1.
-- [ ] **1.4** — *Descartado.* El bug solo afectaba mock mode (string `MOCK-` rompe MP SDK), no producción real. En prod MP siempre envía IDs numéricos.
+- [x] **3.5** — *Cerrado 2026-08-03.* **Resend no manda emails a clientes reales (descubierto 2026-06-29)**. `RESEND_FROM_EMAIL=vakindumentaria@gmail.com` no es viable: Resend requiere un dominio propio verificado (gmail.com no se puede verificar). Descubierto durante validación del path oversell: el refund salió OK pero el email de cancelación nunca llegó (403 validation_error). **Fix aplicado:** dominio `vakstoree.com` comprado y verificado en Resend (DKIM + SPF), `RESEND_FROM_EMAIL=hola@vakstoree.com`, API key en Vercel. Emails reales validados E2E (FASE B1). No requirió cambios de código.
+- [x] **1.4** — *Descartado.* El bug solo afectaba mock mode (string `MOCK-` rompe MP SDK), no producción real. En prod MP siempre envía IDs numéricos.
 
 #### 🟡 Media prioridad (afectan a producción con volumen)
 - [ ] **2.1** — Sanitizar `body` con `JSON.parse(JSON.stringify(body))` antes de insertar en `webhook_events.payload` (evita 500 por valores no-serializables)
@@ -1099,7 +1135,7 @@ new row for relation "orders" violates check constraint "orders_status_check"
   renderizar el empty state hasta confirmar que el cart está realmente vacío del lado
   del cliente (~15 líneas).
 
-**Orden de ejecución sugerido:** ~~1.4+1.5+2.3~~ (1.5 y 2.3 aplicados, 1.4 descartado) → 2.1+2.5+1.1 (commit batch producción) → 2.4+3.1+3.3 (commit batch tipos) → 3.2+3.4 (commit batch infra).
+**Orden de ejecución sugerido:** ~~1.4+1.5+2.3~~ (1.5 y 2.3 aplicados, 1.4 descartado) → ~~G-OAuth, 3.5~~ (cerrados 2026-08-03) → 2.1+2.5+1.1 (commit batch producción, FASE E1) → 2.4+3.1+3.3 (commit batch tipos) → 3.2+3.4 (commit batch infra).
 
 ### 🛠 Defensive checks (catches no catalogados, sesión 2026-06-11)
 
@@ -1228,6 +1264,7 @@ npm run build        # build de producción
 npm run preview      # preview local del build
 npm run seed         # sembrar DB desde scripts/data/stock.xlsx (requiere service_role)
 npm run create-sample# generar scripts/data/stock-sample.xlsx de ejemplo
+npm run confirm-order <orderId>  # confirmar una orden de transferencia (admin)
 ```
 
 ---
@@ -1311,7 +1348,7 @@ Pasos originalmente necesarios para salir a producción con MP. Ya completados (
 ## 12. Cómo probar el flow E2E con mock mode
 
 1. Asegurarse que `MP_MOCK_MODE=true` está en Vercel
-2. Ir a `https://vak-store.vercel.app/productos`
+2. Ir a `https://vakstoree.com/productos`
 3. Agregar 1 producto al carrito
 4. Click en carrito → "Finalizar compra"
 5. Llenar el form
