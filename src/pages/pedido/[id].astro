@@ -6,5 +6,5 @@ import OrderTracking from '../../components/OrderTracking.tsx'
 ---
 
 <Layout title="Seguimiento de pedido | Vak Store">
-  <OrderTracking client:load />
+  <OrderTracking client:load whatsappNumber={import.meta.env.PUBLIC_WHATSAPP_NUMBER ?? ''} />
 </Layout>

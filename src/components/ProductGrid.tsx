@@ -243,16 +243,15 @@ function ProductCard({ product, delay }: { product: ProductWithVariants; delay: 
           ) : (
             <div className={styles.placeholder} aria-hidden="true">Sin imagen</div>
           )}
-          {isFeatured && (
-            <span className={styles.badge}>
-              Destacado
-            </span>
-          )}
-          {!hasStock && (
+          {!hasStock ? (
             <span className={`${styles.badge} ${styles.badgeAccent}`}>
               Agotado
             </span>
-          )}
+          ) : isFeatured ? (
+            <span className={styles.badge}>
+              Destacado
+            </span>
+          ) : null}
           {hasStock && (
             <button
               type="button"

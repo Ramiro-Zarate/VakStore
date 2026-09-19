@@ -18,7 +18,7 @@ const SECTIONS: MenuSection[] = [
       links: [
         { href: '/', label: 'Inicio' },
         { href: '/productos', label: 'Productos' },
-        { href: '/cuenta#contacto', label: 'Contacto' }
+        { href: '/contacto', label: 'Contacto' }
       ]
     },
   {

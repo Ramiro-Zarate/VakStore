@@ -58,7 +58,12 @@ export default function CheckoutForm() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
   const [selectedOptionId, setSelectedOptionId] = useState<string>('')
   const [cpMismatch, setCpMismatch] = useState(false)
+  const [hasMounted, setHasMounted] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -117,6 +122,10 @@ export default function CheckoutForm() {
       setCpMismatch(false)
     }
   }, [form.postalCode, form.city, form.province])
+
+  if (!hasMounted) {
+    return null
+  }
 
   if (items.length === 0) {
     return (

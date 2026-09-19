@@ -112,7 +112,11 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; icon: Re
   }
 }
 
-export default function OrderTracking() {
+interface OrderTrackingProps {
+  whatsappNumber?: string
+}
+
+export default function OrderTracking({ whatsappNumber = '' }: OrderTrackingProps) {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [order, setOrder] = useState<Order | null>(null)
@@ -282,10 +286,7 @@ export default function OrderTracking() {
           {(() => {
             const status = order.status
             const isTransfer = order.payment_method === 'transfer'
-            const whatsappDigits = (typeof window !== 'undefined'
-              && (window as unknown as { PUBLIC_WHATSAPP_NUMBER?: string }).PUBLIC_WHATSAPP_NUMBER
-              || ''
-            ).replace(/[^\d]/g, '')
+            const whatsappDigits = whatsappNumber.replace(/[^\d]/g, '')
             const whatsappText = encodeURIComponent(
               `Hola! Te paso el comprobante de mi pedido #${order.id.slice(0, 8).toUpperCase()} por $${order.total_amount.toLocaleString('es-AR')}.`
             )
